@@ -5,6 +5,7 @@ import { Select } from "https://deno.land/x/cliffy@v1.0.0-rc.4/prompt/select.ts"
 import { Input } from "https://deno.land/x/cliffy@v1.0.0-rc.4/prompt/input.ts";
 import fs from "node:fs";
 let serverStatus = "starting";
+let httpServerStatus = "starting";
 
 const dbPath = "db.json";
 const tables = [
@@ -38,7 +39,6 @@ if (fs.existsSync(".env.json")) {
     env = {};
   }
 }
-if (!env.dbPres) env.dbPres = 0;
 
 const validTableNames = new Set(tables.map(t => t.name));
 
@@ -55,41 +55,6 @@ for (const table of tables) {
 }
 if (dbChanged) {
   db = helldb.getDB(dbPath); // reload db after creation
-}
-
-const dbTables = Object.keys(db);
-
-for (const table of dbTables) {
-  if (!tables.includes(table)) {
-    if (env.dbPres === 1) {
-      continue;
-    } else if (env.dbPres === 2) {
-      helldb.dropTable(dbPath, table);
-      console.log(chalk.yellow(`Deleted extra table: ${table}`));
-      continue;
-    }
-    const answer = await Select.prompt({
-      message: `Table "${table}" is not in initial tables. Delete?`,
-      options: [
-        { name: "Yes (delete this table)", value: "delete" },
-        { name: "No (preserve this table)", value: "preserve" },
-        { name: "Always preserve extra tables", value: "always_preserve" },
-        { name: "Always delete extra tables", value: "always_delete" },
-      ],
-    });
-    if (answer === "delete") {
-      helldb.dropTable(dbPath, table);
-      console.log(chalk.yellow(`Deleted extra table: ${table}`));
-    } else if (answer === "always_preserve") {
-      env.dbPres = 1;
-      fs.writeFileSync(".env.json", JSON.stringify(env, null, 2));
-    } else if (answer === "always_delete") {
-      env.dbPres = 2;
-      fs.writeFileSync(".env.json", JSON.stringify(env, null, 2));
-      helldb.dropTable(dbPath, table);
-      console.log(chalk.yellow(`Deleted extra table: ${table}`));
-    }
-  }
 }
 
 console.log(chalk.red(`maelink - server [rewrite v4]`));
@@ -199,100 +164,62 @@ Deno.serve(
   }
 );
 
-let running = 0;
-let i = 0;
-
-async function runTask() {
-  if (i >= count) return;
-  const idx = i++;
-  running++;
-  const username = `testuser_${Math.random().toString(36).slice(2, 10)}_${idx}`;
-  const password = Math.random().toString(36).slice(2, 12);
-
-  const regFields = {
-    name: username,
-    display_name: username,
-    pswd: await hash(password),
-    uuid: crypto.randomUUID(),
-    token: await hash(username + Date.now()),
-    registered_at: Date.now(),
-  };
-  helldb.addValue(dbPath, "users", regFields);
-
-  const usersTable = helldb.getTable(dbPath, "users");
-  const nameArr = usersTable.name || [];
-  const pswdArr = usersTable.pswd || [];
-  const userIdx = nameArr.indexOf(username);
-  if (userIdx !== -1 && await verify(password, pswdArr[userIdx])) {
-    console.log(chalk.red(`Login success for ${username} | ${userIdx}`));
-  } else {
-    console.log(chalk.red(`Login failed for ${username}`));
-  }
-  running--;
-  if (i < count) {
-    await runTask();
-  }
-}
-
-async function cliMenu() {
-  while (true) {
-    let action;
-    if (env.testMode) {
-      action = await Select.prompt({
-        message: "-- CONTROL MENU --",
-        options: [
-          { name: "Check WebSocket server status", value: "status" },
-          { name: "Check HTTP server status", value: "httpstatus" },
-          { name: "Run direct helldb query", value: "query" },
-          { name: "Enable test mode", value: "test" },
-          { name: "Stress test register/login", value: "stress" },
-          { name: "Exit", value: "exit" },
-        ],
-      });
-    } else {
-      action = await Select.prompt({
-        message: "-- CONTROL MENU --",
-        options: [
-          { name: "Run direct helldb query", value: "query" },
-          { name: "Enable test mode", value: "test" },
-          { name: "Exit", value: "exit" },
-        ],
-      });
+Deno.serve(
+  {
+    port: 6060,
+    onListen({ hostname, port }) {
+      httpServerStatus = "running";
+      console.log(
+        chalk.green(
+          `[HTTP server listening on http://${hostname ?? "localhost"}:${port}]`
+        )
+      );
+    },
+  },
+  async (req) => {
+    if (req.method !== "POST") {
+      return new Response("Method Not Allowed", { status: 405 });
     }
 
-    if (action === "status") {
-      console.log(chalk.blue(`WebSocket server status: ${serverStatus}`));
-    } else if (action === "query") {
-      const table = await Input.prompt("Table name?");
-      const key = await Input.prompt("Key (leave blank for all)?");
-      const tableData = helldb.getTable(dbPath, table);
-      if (!tableData) {
-        console.log(chalk.red("Table not found."));
-      } else if (key) {
-        console.log(tableData[key]);
-      } else {
-        console.log(tableData);
-      }
-    } else if (action === "httpstatus") {
-      console.log(chalk.red("This feature isn't working yet | http server not written yet..."));
-    } else if (action === "test") {
-      env.testMode = !(env.testMode ?? false);
-      fs.writeFileSync(".env.json", JSON.stringify(env, null, 2));
-      console.log(chalk.yellow(`Test mode is now ${env.testMode ? "enabled" : "disabled"}`));
-    } else if (action === "stress") {
-      const count = Number(await Input.prompt("How many test users?"));
-      const concurrency = 10;
+    const url = new URL(req.url);
+    if (url.pathname !== "/home") {
+      return new Response("Not Found", { status: 404 }); 
+    }
 
-      const pool = [];
-      for (let j = 0; j < concurrency && j < count; j++) {
-        pool.push(runTask());
+    const token = req.headers.get("token");
+    if (!token) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const usersTable = helldb.getTable(dbPath, "users");
+    const tokenArr = usersTable.token || [];
+    const userIdx = tokenArr.indexOf(token);
+    
+    if (userIdx === -1) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    try {
+      const body = await req.json();
+      if (!body.content) {
+        return new Response("Bad Request", { status: 400 });
       }
-      await Promise.all(pool);
-      console.log(chalk.green(`Stress test complete with ${count} users.`));
-    } else if (action === "exit") {
-      Deno.exit(0);
+
+      const postData = {
+        user: usersTable.uuid[userIdx],
+        content: body.content,
+        timestamp: Date.now(),
+        author: usersTable.name[userIdx]
+      };
+
+      helldb.addValue(dbPath, "posts", postData);
+
+      return new Response(JSON.stringify({success: true}), {
+        headers: { "Content-Type": "application/json" },
+      });
+
+    } catch (e) {
+      return new Response("Bad Request", { status: 400 });
     }
   }
-}
-
-cliMenu();
+);
