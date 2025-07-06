@@ -1,11 +1,7 @@
 import * as helldb from "./helldb.js";
 import chalk from "chalk";
 import { hash, verify } from "@felix/bcrypt";
-import { Select } from "https://deno.land/x/cliffy@v1.0.0-rc.4/prompt/select.ts";
-import { Input } from "https://deno.land/x/cliffy@v1.0.0-rc.4/prompt/input.ts";
 import fs from "node:fs";
-let serverStatus = "starting";
-let httpServerStatus = "starting";
 
 const dbPath = "db.json";
 const tables = [
@@ -62,7 +58,6 @@ Deno.serve(
   {
     port: 8080,
     onListen({ hostname, port }) {
-      serverStatus = "running";
       console.log(
         chalk.green(
           `[WebSocket server listening on ws://${hostname ?? "localhost"}:${port}]`
@@ -168,7 +163,6 @@ Deno.serve(
   {
     port: 6060,
     onListen({ hostname, port }) {
-      httpServerStatus = "running";
       console.log(
         chalk.green(
           `[HTTP server listening on http://${hostname ?? "localhost"}:${port}]`
