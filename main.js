@@ -27,7 +27,6 @@ const tables = [
   },
 ];
 
-let env = {};
 if (fs.existsSync(".env.json")) {
   try {
     env = JSON.parse(fs.readFileSync(".env.json", "utf8"));
@@ -52,6 +51,9 @@ for (const table of tables) {
 if (dbChanged) {
   db = helldb.getDB(dbPath); // reload db after creation
 }
+
+// Add UNIQUE constraint to username
+helldb.addConstraint(dbPath, "users", "name", "UNIQUE");
 
 console.log(chalk.red(`maelink - server [rewrite v4]`));
 Deno.serve(
@@ -106,15 +108,28 @@ Deno.serve(
             token: token,
             registered_at: regTimestamp,
           };
-          helldb.addValue(dbPath, "users", userFields);
-          socket.send(
-            JSON.stringify({
-              success: true,
-              user: userFields.name,
-              display: userFields.display_name,
-              uuid: userFields.uuid,
-            })
-          );
+          try {
+            helldb.addValue(dbPath, "users", userFields);
+            socket.send(
+              JSON.stringify({
+                error: false,
+                user: userFields.name,
+                display: userFields.display_name,
+                token: token,
+                uuid: userFields.uuid,
+              })
+            );
+          } catch (error) {
+            if (error.message.includes('UNIQUE constraint violation')) {
+              socket.send(
+                JSON.stringify({ error: true, code: 409, reason: "userExists" })
+              );
+            } else {
+              socket.send(
+                JSON.stringify({ error: true, code: 500, reason: "serverError" })
+              );
+            }
+          }
           break;
         }
         case "login_pswd": {
