@@ -52,8 +52,9 @@ if (dbChanged) {
   db = helldb.getDB(dbPath); // reload db after creation
 }
 
-// Add UNIQUE constraint to username
 helldb.addConstraint(dbPath, "users", "name", "UNIQUE");
+
+const users = new Map();
 
 console.log(chalk.red(`maelink - server [rewrite v4]`));
 Deno.serve(
@@ -72,8 +73,33 @@ Deno.serve(
       return new Response(null, { status: 501 });
     }
     const { socket, response } = Deno.upgradeWebSocket(req);
-    socket.addEventListener("open", () => {
-      console.log("a client connected!");
+socket.addEventListener("close", () => {
+  users.delete(socket);
+});
+
+setInterval(() => {
+  const usersTable = helldb.getTable(dbPath, "users");
+  const tokenArr = usersTable.token || [];
+  const expiresArr = usersTable.expires_at || [];
+  const now = Date.now();
+  tokenArr.forEach((token, idx) => {
+    if (expiresArr[idx] && now > expiresArr[idx]) {
+      for (const [socket, userData] of users.entries()) {
+        if (userData.token === token) {
+          socket.close();
+          users.delete(socket);
+        }
+      }
+    }
+  });
+}, 5 * 60 * 1000);
+
+socket.addEventListener("open", () => {
+      users.set(socket, {
+        user: null,
+        token: null,
+        uuid: null,
+      });
     });
     socket.addEventListener("message", async (event) => {
       const startTime = Date.now();
@@ -119,6 +145,12 @@ Deno.serve(
                 uuid: userFields.uuid,
               })
             );
+            users.set(socket, {
+              user: userFields.name,
+              token: token,
+              uuid: userFields.uuid,
+            });
+            console.log(users);
           } catch (error) {
             if (error.message.includes('UNIQUE constraint violation')) {
               socket.send(
@@ -156,6 +188,50 @@ Deno.serve(
             socket.send(
               JSON.stringify({ error: false, user: data.user, token: usersTable.token ? usersTable.token[idx] : null, uuid: usersTable.uuid ? usersTable.uuid[idx] : null })
             );
+            users.set(socket, {
+              user: data.user,
+              token: usersTable.token ? usersTable.token[idx] : null,
+              uuid: usersTable.uuid ? usersTable.uuid[idx] : null
+            });
+            console.log(users);
+            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+          } else {
+            socket.send(
+              JSON.stringify({ error: true, code: 400, reason: "badPswd" })
+            );
+            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+          }
+          break;
+        }
+        case "login_token": {
+          if (!data.pswd || !data.user) {
+            socket.send(
+              JSON.stringify({ error: true, code: 400, reason: "badRequest" })
+            );
+            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+            break;
+          }
+          const usersTable = helldb.getTable(dbPath, "users");
+          const tokenArr = usersTable.token || [];
+          const idx = tokenArr.indexOf(data.token);
+          if (idx === -1) {
+            socket.send(
+              JSON.stringify({ error: true, code: 404, reason: "userNotFound" })
+            );
+            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+            break;
+          }
+          const hashed = pswdArr[idx];
+          if (await verify(data.pswd, hashed)) {
+            socket.send(
+              JSON.stringify({ error: false, user: data.user, token: usersTable.token ? usersTable.token[idx] : null, uuid: usersTable.uuid ? usersTable.uuid[idx] : null })
+            );
+            users.set(socket, {
+              user: data.user,
+              token: usersTable.token ? usersTable.token[idx] : null,
+              uuid: usersTable.uuid ? usersTable.uuid[idx] : null
+            });
+            console.log(users);
             console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
           } else {
             socket.send(
