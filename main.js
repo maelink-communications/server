@@ -81,7 +81,7 @@ Deno.serve({
     const expiredUsers = await User.findAll({
       where: {
         expires_at: {
-          [Op.lt]: now
+          [Sequelize.Op.lt]: now
         }
       }
     });
