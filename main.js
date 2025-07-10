@@ -8,7 +8,7 @@ const sequelize = new Sequelize('database', 'username', 'password', {
   logging: false
 });
 
-class User extends Model {}
+class User extends Model { }
 User.init({
   name: {
     type: DataTypes.STRING,
@@ -32,7 +32,7 @@ User.init({
   modelName: 'user'
 });
 
-class Post extends Model {}
+class Post extends Model { }
 Post.init({
   content: {
     type: DataTypes.TEXT,
@@ -69,13 +69,13 @@ Deno.serve({
   if (req.headers.get("upgrade") !== "websocket") {
     return new Response(null, { status: 501 });
   }
-  
+
   const { socket, response } = Deno.upgradeWebSocket(req);
-  
+
   socket.addEventListener("close", () => {
     connectedUsers.delete(socket);
   });
-  
+
   setInterval(async () => {
     const now = new Date();
     const expiredUsers = await User.findAll({
@@ -98,90 +98,141 @@ Deno.serve({
 
   socket.addEventListener("open", () => {
     connectedUsers.set(socket, {
-      user: null, 
+      user: null,
       token: null,
-      uuid: null
+      uuid: null,
+      client: null,
     });
+    socket.send(JSON.stringify({
+      cmd: "welcome"
+    }));
   });
 
   socket.addEventListener("message", async (event) => {
-    const startTime = Date.now();
-    let data;
-    try {
-      data = JSON.parse(event.data);
-    } catch {
-      socket.send(JSON.stringify({ error: true, code: 400, reason: "badJSON" }));
-      console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-      return;
-    }
+      const startTime = Date.now();
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        socket.send(JSON.stringify({ error: true, code: 400, reason: "badJSON" }));
+        console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+        return;
+      }
 
-    switch (data.cmd) {
-      case "reg": {
-        if (!data.pswd || !data.user) {
-          socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
+      switch (data.cmd) {
+        case "client_info": {
+          if (!data.client) {
+            socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
+          }
+
+          connectedUsers.get(socket).client = data.client;
+          socket.send(JSON.stringify({ error: false, code: 200, reason: "clientInfoUpdated" }));
           break;
         }
 
-        const usernameEncoded = Array.from(data.user)
-          .map((char) => char.charCodeAt(0))
-          .join("");
-        const tokenRaw = `${usernameEncoded}${Date.now()}`;
-        const token = await hash(tokenRaw);
+        case "reg": {
+          if (!data.pswd || !data.user) {
+            socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
+            break;
+          }
 
-        try {
-          const newUser = await User.create({
-            name: data.user,
-            display_name: data.display_name || data.user,
-            pswd: await hash(data.pswd),
-            token: token,
-            registered_at: new Date()
-          });
+          const usernameEncoded = Array.from(data.user)
+            .map((char) => char.charCodeAt(0))
+            .join("");
+          const tokenRaw = `${usernameEncoded}${Date.now()}`;
+          const token = await hash(tokenRaw);
+
+          try {
+            const newUser = await User.create({
+              name: data.user,
+              display_name: data.display_name || data.user,
+              pswd: await hash(data.pswd),
+              token: token,
+              registered_at: new Date()
+            });
+
+            socket.send(JSON.stringify({
+              error: false,
+              user: newUser.name,
+              display: newUser.display_name,
+              token: token,
+              uuid: newUser.uuid
+            }));
+
+            connectedUsers.set(socket, {
+              user: newUser.name,
+              token: token,
+              uuid: newUser.uuid
+            });
+
+          } catch (error) {
+            if (error.name === 'SequelizeUniqueConstraintError') {
+              socket.send(JSON.stringify({ error: true, code: 409, reason: "userExists" }));
+            } else {
+              socket.send(JSON.stringify({ error: true, code: 500, reason: "serverError" }));
+            }
+          }
+          break;
+        }
+
+        case "login_pswd": {
+          if (!data.pswd || !data.user) {
+            socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
+            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+            break;
+          }
+
+          const foundUser = await User.findOne({ where: { name: data.user } });
+
+          if (!foundUser) {
+            socket.send(JSON.stringify({ error: true, code: 404, reason: "userNotFound" }));
+            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+            break;
+          }
+
+          if (await verify(data.pswd, foundUser.pswd)) {
+            socket.send(JSON.stringify({
+              error: false,
+              user: foundUser.name,
+              token: foundUser.token,
+              uuid: foundUser.uuid
+            }));
+
+            connectedUsers.set(socket, {
+              user: foundUser.name,
+              token: foundUser.token,
+              uuid: foundUser.uuid
+            });
+
+            console.log(connectedUsers);
+            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+          } else {
+            socket.send(JSON.stringify({ error: true, code: 400, reason: "badPswd" }));
+            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+          }
+          break;
+        }
+
+        case "login_token": {
+          if (!data.token) {
+            socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
+            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+            break;
+          }
+
+          const foundUser = await User.findOne({ where: { token: data.token } });
+
+          if (!foundUser) {
+            socket.send(JSON.stringify({ error: true, code: 404, reason: "userNotFound" }));
+            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+            break;
+          }
 
           socket.send(JSON.stringify({
             error: false,
-            user: newUser.name,
-            display: newUser.display_name,
-            token: token,
-            uuid: newUser.uuid
-          }));
-
-          connectedUsers.set(socket, {
-            user: newUser.name,
-            token: token,
-            uuid: newUser.uuid
-          });
-
-        } catch (error) {
-          if (error.name === 'SequelizeUniqueConstraintError') {
-            socket.send(JSON.stringify({ error: true, code: 409, reason: "userExists" }));
-          } else {
-            socket.send(JSON.stringify({ error: true, code: 500, reason: "serverError" }));
-          }
-        }
-        break;
-      }
-
-      case "login_pswd": {
-        if (!data.pswd || !data.user) {
-          socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
-          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-          break;
-        }
-
-        const foundUser = await User.findOne({ where: { name: data.user }});
-        
-        if (!foundUser) {
-          socket.send(JSON.stringify({ error: true, code: 404, reason: "userNotFound" }));
-          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-          break;
-        }
-
-        if (await verify(data.pswd, foundUser.pswd)) {
-          socket.send(JSON.stringify({ 
-            error: false, 
             user: foundUser.name,
             token: foundUser.token,
-            uuid: foundUser.uuid 
+            uuid: foundUser.uuid
           }));
 
           connectedUsers.set(socket, {
@@ -192,51 +243,14 @@ Deno.serve({
 
           console.log(connectedUsers);
           console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-        } else {
-          socket.send(JSON.stringify({ error: true, code: 400, reason: "badPswd" }));
-          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-        }
-        break;
-      }
-
-      case "login_token": {
-        if (!data.token) {
-          socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
-          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
           break;
         }
 
-        const foundUser = await User.findOne({ where: { token: data.token }});
-
-        if (!foundUser) {
-          socket.send(JSON.stringify({ error: true, code: 404, reason: "userNotFound" }));
+        default:
+          socket.send(JSON.stringify({ error: true, code: 404, reason: "notFound" }));
           console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-          break;
-        }
-
-        socket.send(JSON.stringify({
-          error: false,
-          user: foundUser.name,
-          token: foundUser.token,
-          uuid: foundUser.uuid
-        }));
-
-        connectedUsers.set(socket, {
-          user: foundUser.name,
-          token: foundUser.token,
-          uuid: foundUser.uuid
-        });
-
-        console.log(connectedUsers);
-        console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-        break;
       }
-
-      default:
-        socket.send(JSON.stringify({ error: true, code: 404, reason: "notFound" }));
-        console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-    }
-  });
+    });
 
   return response;
 });
@@ -266,9 +280,9 @@ Deno.serve({
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const foundUser = await User.findOne({ where: { token }});
+    const foundUser = await User.findOne({ where: { token } });
     if (!foundUser) {
-      return new Response("Unauthorized", { status: 401 }); 
+      return new Response("Unauthorized", { status: 401 });
     }
 
     try {
@@ -299,7 +313,7 @@ Deno.serve({
       order: [['timestamp', 'DESC']]
     });
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       posts: posts.map(post => ({
         user: post.user.name,
         content: post.content,
