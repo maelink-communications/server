@@ -1,287 +1,274 @@
-import * as helldb from "./helldb.js";
+import { Sequelize, DataTypes, Model } from 'sequelize';
 import chalk from "chalk";
 import { hash, verify } from "@felix/bcrypt";
-import fs from "node:fs";
 
-const dbPath = "db.json";
-const tables = [
-  {
-    name: "users",
-    columns: [
-      "name",
-      "display_name",
-      "pswd",
-      "uuid",
-      "token",
-      "registered_at",
-    ],
-  },
-  {
-    name: "posts",
-    columns: [
-      "user",
-      "content",
-      "timestamp",
-      "author",
-    ],
-  },
-];
-
-if (fs.existsSync(".env.json")) {
-  try {
-    env = JSON.parse(fs.readFileSync(".env.json", "utf8"));
-  } catch {
-    env = {};
-  }
-}
-
-const validTableNames = new Set(tables.map(t => t.name));
-
-let db = helldb.getDB(dbPath); // keep this as let, we WILL need it later
-let dbChanged = false;
-for (const table of tables) {
-  if (!validTableNames.has(table)) {
-    if (!Object.prototype.hasOwnProperty.call(db, table.name)) {
-      helldb.createTable(dbPath, table.name, table.columns);
-      dbChanged = true;
-      console.log(chalk.green(`Initialized table: ${table.name}`));
-    }
-  }
-}
-if (dbChanged) {
-  db = helldb.getDB(dbPath); // reload db after creation
-}
-
-helldb.addConstraint(dbPath, "users", "name", "UNIQUE");
-
-const users = new Map();
-
-console.log(chalk.red(`maelink - server [rewrite v4]`));
-Deno.serve(
-  {
-    port: 8080,
-    onListen({ hostname, port }) {
-      console.log(
-        chalk.green(
-          `[WebSocket server listening on ws://${hostname ?? "localhost"}:${port}]`
-        )
-      );
-    },
-  },
-  (req) => {
-    if (req.headers.get("upgrade") !== "websocket") {
-      return new Response(null, { status: 501 });
-    }
-    const { socket, response } = Deno.upgradeWebSocket(req);
-socket.addEventListener("close", () => {
-  users.delete(socket);
+const sequelize = new Sequelize('database', 'username', 'password', {
+  dialect: 'sqlite',
+  storage: 'db.sqlite',
+  logging: false
 });
 
-setInterval(() => {
-  const usersTable = helldb.getTable(dbPath, "users");
-  const tokenArr = usersTable.token || [];
-  const expiresArr = usersTable.expires_at || [];
-  const now = Date.now();
-  tokenArr.forEach((token, idx) => {
-    if (expiresArr[idx] && now > expiresArr[idx]) {
-      for (const [socket, userData] of users.entries()) {
-        if (userData.token === token) {
-          socket.close();
-          users.delete(socket);
+class User extends Model {}
+User.init({
+  name: {
+    type: DataTypes.STRING,
+    unique: true,
+    allowNull: false
+  },
+  display_name: DataTypes.STRING,
+  pswd: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4
+  },
+  token: DataTypes.STRING,
+  registered_at: DataTypes.DATE,
+  expires_at: DataTypes.DATE
+}, {
+  sequelize,
+  modelName: 'user'
+});
+
+class Post extends Model {}
+Post.init({
+  content: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  timestamp: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  }
+}, {
+  sequelize,
+  modelName: 'post'
+});
+
+User.hasMany(Post);
+Post.belongsTo(User);
+
+await sequelize.sync();
+
+const connectedUsers = new Map();
+
+console.log(chalk.red(`maelink - server [rewrite v4]`));
+
+Deno.serve({
+  port: 8080,
+  onListen({ hostname, port }) {
+    console.log(
+      chalk.green(
+        `[WebSocket server listening on ws://${hostname ?? "localhost"}:${port}]`
+      )
+    );
+  }
+}, (req) => {
+  if (req.headers.get("upgrade") !== "websocket") {
+    return new Response(null, { status: 501 });
+  }
+  
+  const { socket, response } = Deno.upgradeWebSocket(req);
+  
+  socket.addEventListener("close", () => {
+    connectedUsers.delete(socket);
+  });
+  
+  setInterval(async () => {
+    const now = new Date();
+    const expiredUsers = await User.findAll({
+      where: {
+        expires_at: {
+          [Op.lt]: now
         }
       }
-    }
-  });
-}, 5 * 60 * 1000);
-
-socket.addEventListener("open", () => {
-      users.set(socket, {
-        user: null,
-        token: null,
-        uuid: null,
-      });
     });
-    socket.addEventListener("message", async (event) => {
-      const startTime = Date.now();
-      let data;
-      try {
-        data = JSON.parse(event.data);
-      } catch {
-        socket.send(JSON.stringify({ error: true, code: 400, reason: "badJSON" }));
-        console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-        return;
-      }
-      switch (data.cmd) {
-        case "reg": {
-          if (!data.pswd || !data.user) {
-            socket.send(
-              JSON.stringify({ error: true, code: 400, reason: "badRequest" })
-            );
-            break;
-          }
-          const usernameEncoded = Array.from(data.user)
-            .map((char) => char.charCodeAt(0))
-            .join("");
-          const regTimestamp = Date.now();
-          const tokenRaw = `${usernameEncoded}${regTimestamp}`;
-          const token = await hash(tokenRaw);
 
-          const userFields = {
+    expiredUsers.forEach(userRecord => {
+      for (const [socket, userData] of connectedUsers.entries()) {
+        if (userData.token === userRecord.token) {
+          socket.close();
+          connectedUsers.delete(socket);
+        }
+      }
+    });
+  }, 5 * 60 * 1000);
+
+  socket.addEventListener("open", () => {
+    connectedUsers.set(socket, {
+      user: null, 
+      token: null,
+      uuid: null
+    });
+  });
+
+  socket.addEventListener("message", async (event) => {
+    const startTime = Date.now();
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch {
+      socket.send(JSON.stringify({ error: true, code: 400, reason: "badJSON" }));
+      console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+      return;
+    }
+
+    switch (data.cmd) {
+      case "reg": {
+        if (!data.pswd || !data.user) {
+          socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
+          break;
+        }
+
+        const usernameEncoded = Array.from(data.user)
+          .map((char) => char.charCodeAt(0))
+          .join("");
+        const tokenRaw = `${usernameEncoded}${Date.now()}`;
+        const token = await hash(tokenRaw);
+
+        try {
+          const newUser = await User.create({
             name: data.user,
             display_name: data.display_name || data.user,
             pswd: await hash(data.pswd),
-            uuid: crypto.randomUUID(),
             token: token,
-            registered_at: regTimestamp,
-          };
-          try {
-            helldb.addValue(dbPath, "users", userFields);
-            socket.send(
-              JSON.stringify({
-                error: false,
-                user: userFields.name,
-                display: userFields.display_name,
-                token: token,
-                uuid: userFields.uuid,
-              })
-            );
-            users.set(socket, {
-              user: userFields.name,
-              token: token,
-              uuid: userFields.uuid,
-            });
-            console.log(users);
-          } catch (error) {
-            if (error.message.includes('UNIQUE constraint violation')) {
-              socket.send(
-                JSON.stringify({ error: true, code: 409, reason: "userExists" })
-              );
-            } else {
-              socket.send(
-                JSON.stringify({ error: true, code: 500, reason: "serverError" })
-              );
-            }
-          }
-          break;
-        }
-        case "login_pswd": {
-          if (!data.pswd || !data.user) {
-            socket.send(
-              JSON.stringify({ error: true, code: 400, reason: "badRequest" })
-            );
-            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-            break;
-          }
-          const usersTable = helldb.getTable(dbPath, "users");
-          const nameArr = usersTable.name || [];
-          const pswdArr = usersTable.pswd || [];
-          const idx = nameArr.indexOf(data.user);
-          if (idx === -1) {
-            socket.send(
-              JSON.stringify({ error: true, code: 404, reason: "userNotFound" })
-            );
-            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-            break;
-          }
-          const hashed = pswdArr[idx];
-          if (await verify(data.pswd, hashed)) {
-            socket.send(
-              JSON.stringify({ error: false, user: data.user, token: usersTable.token ? usersTable.token[idx] : null, uuid: usersTable.uuid ? usersTable.uuid[idx] : null })
-            );
-            users.set(socket, {
-              user: data.user,
-              token: usersTable.token ? usersTable.token[idx] : null,
-              uuid: usersTable.uuid ? usersTable.uuid[idx] : null
-            });
-            console.log(users);
-            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+            registered_at: new Date()
+          });
+
+          socket.send(JSON.stringify({
+            error: false,
+            user: newUser.name,
+            display: newUser.display_name,
+            token: token,
+            uuid: newUser.uuid
+          }));
+
+          connectedUsers.set(socket, {
+            user: newUser.name,
+            token: token,
+            uuid: newUser.uuid
+          });
+
+        } catch (error) {
+          if (error.name === 'SequelizeUniqueConstraintError') {
+            socket.send(JSON.stringify({ error: true, code: 409, reason: "userExists" }));
           } else {
-            socket.send(
-              JSON.stringify({ error: true, code: 400, reason: "badPswd" })
-            );
-            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+            socket.send(JSON.stringify({ error: true, code: 500, reason: "serverError" }));
           }
-          break;
         }
-        case "login_token": {
-          if (!data.pswd || !data.user) {
-            socket.send(
-              JSON.stringify({ error: true, code: 400, reason: "badRequest" })
-            );
-            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-            break;
-          }
-          const usersTable = helldb.getTable(dbPath, "users");
-          const tokenArr = usersTable.token || [];
-          const idx = tokenArr.indexOf(data.token);
-          if (idx === -1) {
-            socket.send(
-              JSON.stringify({ error: true, code: 404, reason: "userNotFound" })
-            );
-            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-            break;
-          }
-          const hashed = pswdArr[idx];
-          if (await verify(data.pswd, hashed)) {
-            socket.send(
-              JSON.stringify({ error: false, user: data.user, token: usersTable.token ? usersTable.token[idx] : null, uuid: usersTable.uuid ? usersTable.uuid[idx] : null })
-            );
-            users.set(socket, {
-              user: data.user,
-              token: usersTable.token ? usersTable.token[idx] : null,
-              uuid: usersTable.uuid ? usersTable.uuid[idx] : null
-            });
-            console.log(users);
-            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-          } else {
-            socket.send(
-              JSON.stringify({ error: true, code: 400, reason: "badPswd" })
-            );
-            console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
-          }
-          break;
-        }
-        default:
-          socket.send(JSON.stringify({ error: true, code: 404, reason: "notFound" }));
-          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+        break;
       }
-    });
-    return response;
+
+      case "login_pswd": {
+        if (!data.pswd || !data.user) {
+          socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
+          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+          break;
+        }
+
+        const foundUser = await User.findOne({ where: { name: data.user }});
+        
+        if (!foundUser) {
+          socket.send(JSON.stringify({ error: true, code: 404, reason: "userNotFound" }));
+          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+          break;
+        }
+
+        if (await verify(data.pswd, foundUser.pswd)) {
+          socket.send(JSON.stringify({ 
+            error: false, 
+            user: foundUser.name,
+            token: foundUser.token,
+            uuid: foundUser.uuid 
+          }));
+
+          connectedUsers.set(socket, {
+            user: foundUser.name,
+            token: foundUser.token,
+            uuid: foundUser.uuid
+          });
+
+          console.log(connectedUsers);
+          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+        } else {
+          socket.send(JSON.stringify({ error: true, code: 400, reason: "badPswd" }));
+          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+        }
+        break;
+      }
+
+      case "login_token": {
+        if (!data.token) {
+          socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
+          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+          break;
+        }
+
+        const foundUser = await User.findOne({ where: { token: data.token }});
+
+        if (!foundUser) {
+          socket.send(JSON.stringify({ error: true, code: 404, reason: "userNotFound" }));
+          console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+          break;
+        }
+
+        socket.send(JSON.stringify({
+          error: false,
+          user: foundUser.name,
+          token: foundUser.token,
+          uuid: foundUser.uuid
+        }));
+
+        connectedUsers.set(socket, {
+          user: foundUser.name,
+          token: foundUser.token,
+          uuid: foundUser.uuid
+        });
+
+        console.log(connectedUsers);
+        console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+        break;
+      }
+
+      default:
+        socket.send(JSON.stringify({ error: true, code: 404, reason: "notFound" }));
+        console.log(chalk.yellow(`Request handled in ${Date.now() - startTime}ms`));
+    }
+  });
+
+  return response;
+});
+
+Deno.serve({
+  port: 6060,
+  onListen({ hostname, port }) {
+    console.log(
+      chalk.green(
+        `[HTTP server listening on http://${hostname ?? "localhost"}:${port}]`
+      )
+    );
   }
-);
+}, async (req) => {
+  if (req.method !== "POST" && req.method !== "GET") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
 
-Deno.serve(
-  {
-    port: 6060,
-    onListen({ hostname, port }) {
-      console.log(
-        chalk.green(
-          `[HTTP server listening on http://${hostname ?? "localhost"}:${port}]`
-        )
-      );
-    },
-  },
-  async (req) => {
-    if (req.method !== "POST") {
-      return new Response("Method Not Allowed", { status: 405 });
-    }
+  const url = new URL(req.url);
+  if (url.pathname !== "/home" && url.pathname !== "/api/posts") {
+    return new Response("Not Found", { status: 404 });
+  }
 
-    const url = new URL(req.url);
-    if (url.pathname !== "/home") {
-      return new Response("Not Found", { status: 404 }); 
-    }
-
+  if (url.pathname === "/home") {
     const token = req.headers.get("token");
     if (!token) {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const usersTable = helldb.getTable(dbPath, "users");
-    const tokenArr = usersTable.token || [];
-    const userIdx = tokenArr.indexOf(token);
-    
-    if (userIdx === -1) {
-      return new Response("Unauthorized", { status: 401 });
+    const foundUser = await User.findOne({ where: { token }});
+    if (!foundUser) {
+      return new Response("Unauthorized", { status: 401 }); 
     }
 
     try {
@@ -290,21 +277,36 @@ Deno.serve(
         return new Response("Bad Request", { status: 400 });
       }
 
-      const postData = {
-        user: usersTable.uuid[userIdx],
+      await Post.create({
         content: body.content,
-        timestamp: Date.now(),
-        author: usersTable.name[userIdx]
-      };
+        userId: foundUser.id
+      });
 
-      helldb.addValue(dbPath, "posts", postData);
-
-      return new Response(JSON.stringify({success: true}), {
-        headers: { "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { "Content-Type": "application/json" }
       });
 
     } catch (e) {
       return new Response("Bad Request", { status: 400 });
     }
+
+  } else if (url.pathname === "/api/posts" && req.method === "GET") {
+    const posts = await Post.findAll({
+      include: [{
+        model: User,
+        attributes: ['name']
+      }],
+      order: [['timestamp', 'DESC']]
+    });
+
+    return new Response(JSON.stringify({ 
+      posts: posts.map(post => ({
+        user: post.user.name,
+        content: post.content,
+        timestamp: post.timestamp
+      }))
+    }), {
+      headers: { "Content-Type": "application/json" }
+    });
   }
-);
+});
