@@ -3,7 +3,6 @@
 Server for maelink, the open source social media
 
 ## HOW TO RUN
--------------------
 
 You need to install through Deno:
 
