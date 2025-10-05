@@ -180,7 +180,6 @@ Deno.serve({
             token: token,
             uuid: newUser.uuid
           });
-          // delete the used registration code so it cannot be reused
           try {
             await codeEntry.destroy();
           } catch (delErr) {
