@@ -2,3 +2,4 @@ logintest.js
 regtest.js
 .env.json
 db.sqlite
+console.js
