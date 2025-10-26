@@ -48,20 +48,6 @@ Post.init({
   sequelize,
   modelName: 'post'
 });
-class VeriToken extends Model { }
-VeriToken.init({
-  value: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  expires_at: {
-    type: DataTypes.DATE,
-    allowNull: false
-  }
-}, {
-  sequelize,
-  modelName: 'veriToken'
-});
 class Code extends Model { }
 Code.init({
   value: {
@@ -146,6 +132,14 @@ Deno.serve({
       case "reg": {
         if (!data.pswd || !data.user || !data.code) {
           socket.send(JSON.stringify({ error: true, code: 400, reason: "badRequest" }));
+          break;
+        }
+        if (data.user.length > 16) {
+          socket.send(JSON.stringify({ error: true, code: 400, reason: "usernameTooLong" }));
+          break;
+        }
+        if (data.user.length < 4) {
+          socket.send(JSON.stringify({ error: true, code: 400, reason: "usernameTooShort" }));
           break;
         }
         const codeEntry = await Code.findOne({ where: { value: data.code } });
