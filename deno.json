@@ -1,9 +1,0 @@
-{
-  "compilerOptions": {
-    "lib": ["deno.ns", "deno.window"],
-    "target": "esnext"
-  },
-  "dependencies": {
-    "gradient-string": "https://esm.sh/gradient-string@2.0.1"
-  }
-}
