@@ -2,7 +2,7 @@ import { User, Post, Code } from './database/tables.js';
 import { hash, verify } from "jsr:@felix/bcrypt";
 import chalk from "npm:chalk";
 export function startWebSocketServer({ port = 8080 }) {
-    Deno.serve({
+Deno.serve({
   port: port,
   onListen({ hostname, port }) {
     console.log(
@@ -15,6 +15,7 @@ export function startWebSocketServer({ port = 8080 }) {
   if (req.headers.get("upgrade") !== "websocket") {
     return new Response(null, { status: 501 });
   }
+  const connectedUsers = new Map();
   const { socket, response } = Deno.upgradeWebSocket(req); socket.addEventListener("close", () => {
     connectedUsers.delete(socket);
   });
