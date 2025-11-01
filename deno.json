@@ -5,5 +5,9 @@
     "sequelize": "npm:sequelize@^6.37.7",
     "sqlite3": "npm:sqlite3@^5.1.7"
   },
-  "nodeModulesDir": "auto"
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "install": "deno install --allow-scripts=npm:sqlite3",
+    "start": "deno run --allow-all main.js"
+  }
 }
