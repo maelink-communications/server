@@ -2,7 +2,7 @@ import { Sequelize, DataTypes, Model } from 'sequelize';
 
 const sequelize = new Sequelize('database', 'username', 'password', {
   dialect: 'sqlite',
-  storage: 'db.sqlite',
+  storage: 'database/db.sqlite',
   logging: false
 });
 
@@ -38,10 +38,12 @@ async function gen() {
     }
   }
   const all = await Code.findAll({ order: [['createdAt', 'DESC']] });
-  console.log('All Codes:\n', all.map(c => ({ id: c.id, value: c.value, expires_at: c.expires_at })).slice(0, 50));
+  console.log('All codes:\n', all.map(c => ({ id: c.id, value: c.value, expires_at: c.expires_at })).slice(0, 50));
   await sequelize.close();
 }
 
 if (import.meta.main) {
   gen();
 }
+
+export { gen };

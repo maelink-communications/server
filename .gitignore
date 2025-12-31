@@ -3,3 +3,6 @@ regtest.js
 .env.json
 db.sqlite
 console.js
+node_modules/
+deno.lock
+MAELINK_SYSTEM_KEY.txt
