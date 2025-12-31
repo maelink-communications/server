@@ -60,20 +60,33 @@ export function startHttpServer({ port } = {}) {
       }
     }, 5 * 60 * 1000);
 
-    // generate key with gen() on startup and create new when used, and log it
-    gen();
+    // ensure at least 5 keys are present: generate up to 5 on startup
+    async function replenishCodes(target = 5) {
+      try {
+        const count = await Code.count();
+        const need = target - count;
+        if (need > 0) {
+          console.log(`Generating ${need} code(s) to maintain ${target} available keys`);
+          for (let i = 0; i < need; i++) {
+            try { await gen(); } catch (e) { console.error('Failed to generate code:', e); }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to check code count:', e);
+      }
+    }
+
+    // initial fill to ensure there are 5 codes
+    replenishCodes(5).catch((e) => console.error('replenishCodes initial error:', e));
+
+    // whenever a Code is destroyed (used), replenish to keep 5
     Sequelize.afterDestroy(Code, async (codeInstance, options) => {
-      console.log('Code used, generating a new one...');
-      gen();
+      console.log('Code used, replenishing keys...');
+      try { await replenishCodes(5); } catch (e) { console.error('replenishCodes afterDestroy error:', e); }
     });
 
-    setInterval(() => {
-      for (const [socket, userData] of connectedUsers.entries()) {
-        if (!userData.token) {
-          try { socket.send(JSON.stringify({ cmd: "request_token", error: true, code: 401, reason: "tokenRequired" })); } catch { }
-        }
-      }
-    }, 30 * 1000);
+    // periodic check: if less than 5 exist, create enough to make 5
+    setInterval(() => { replenishCodes(5).catch((e) => console.error('replenishCodes interval error:', e)); }, 30 * 1000);
 
     Post.addHook('afterCreate', async (post) => {
       const author = await User.findByPk(post.userId);
