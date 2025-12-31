@@ -45,3 +45,5 @@ async function gen() {
 if (import.meta.main) {
   gen();
 }
+
+export { gen };

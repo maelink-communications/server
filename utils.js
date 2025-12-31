@@ -2,6 +2,7 @@ import { User, Post, Code, ActionLog } from './database/tables.js';
 import { hash, verify } from "jsr:@felix/bcrypt";
 import chalk from "npm:chalk";
 import instance_name from "./config.js";
+import { gen } from "./codegen.js";
 import { Sequelize } from 'sequelize';
 const connectedUsers = new Map();
 let backgroundTasksStarted = false;
@@ -59,6 +60,13 @@ export function startHttpServer({ port } = {}) {
       }
     }, 5 * 60 * 1000);
 
+    // generate key with gen() on startup and create new when used, and log it
+    gen();
+    Sequelize.afterDestroy(Code, async (codeInstance, options) => {
+      console.log('Code used, generating a new one...');
+      gen();
+    });
+
     setInterval(() => {
       for (const [socket, userData] of connectedUsers.entries()) {
         if (!userData.token) {
@@ -78,7 +86,6 @@ export function startHttpServer({ port } = {}) {
   }
 
   Deno.serve(async (req) => {
-    // Handle WebSocket upgrade in the same HTTP server (Deno Deploy compatible)
     if (req.headers.get("upgrade") === "websocket") {
       const { socket, response } = Deno.upgradeWebSocket(req);
       socket.addEventListener("close", () => {

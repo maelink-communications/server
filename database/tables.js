@@ -129,14 +129,12 @@ try {
           await Deno.writeTextFile(keyFilePath, fileContents);
         }
         console.log('=== SYSTEM ACCOUNT CREATED ===');
-        console.log('Wrote @maelink system key to:', keyFilePath);
-        console.log('Please store this file securely and remove it when done.');
+        console.log('login key for @maelink (store this securely):', keyRaw);
+        console.log(`Created at: ${new Date().toISOString()}`);
+        console.log(`Also saved to file: ${keyFilePath}`);
         console.log('==============================');
       } catch (e) {
-        console.error('Failed to write system key to file, falling back to console output:', e);
-        console.log('=== SYSTEM ACCOUNT CREATED ===');
-        console.log('login key for @maelink (store this securely):', keyRaw);
-        console.log('==============================');
+        console.error('Failed to write system key to file:', e);
       }
   } else {
     if (!found.system_account || found.role !== 'sysadmin') {
