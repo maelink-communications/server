@@ -848,19 +848,29 @@ export function startHttpServer({
         });
       }
     } else if (req.method === "GET" && url.pathname === endpoints.home) {
-      const posts = await Post.findAll({ // just grab all posts
+      const posts = await Post.findAll({
         order: [
           ['timestamp', 'DESC']
         ]
       });
+      const mappedPosts = await Promise.all(posts.map(async post => {
+        let authorName = null;
+        try {
+          const author = post.author || await User.findByPk(post.userId);
+          authorName = author ? author.name : null;
+        } catch {
+          authorName = null;
+        }
+        return {
+          user: authorName,
+          content: post.content,
+          timestamp: post.timestamp || post.createdAt,
+          id: post.id
+        };
+      }));
       return new Response(
         JSON.stringify({
-          posts: posts.map(post => ({
-            user: post.author.name,
-            content: post.content,
-            timestamp: post.timestamp || post.createdAt,
-            id: post.id
-          }))
+          posts: mappedPosts
         }), {
         headers: {
           ...CORS_HEADERS,
