@@ -65,6 +65,28 @@ Post.init({
   sequelize,
   modelName: 'post'
 });
+class InboxPost extends Model { }
+InboxPost.init({
+  content: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  timestamp: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  toUserId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  }
+}, {
+  sequelize,
+  modelName: 'inboxpost'
+});
 class Code extends Model { }
 Code.init({
   value: {
@@ -97,6 +119,8 @@ ActionLog.init({
 });
 User.hasMany(Post, { foreignKey: 'userId', as: 'posts' });
 Post.belongsTo(User, { foreignKey: 'userId', as: 'author' });
+User.hasMany(InboxPost, { foreignKey: 'userId', as: 'inbox' });
+InboxPost.belongsTo(User, { foreignKey: 'userId', as: 'author' });
 User.hasMany(ActionLog, { foreignKey: 'actorId', as: 'actions' });
 User.hasMany(ActionLog, { foreignKey: 'targetUserId', as: 'actedUpon' });
 
@@ -148,4 +172,4 @@ try {
 }
 await sequelize.sync();
 
-export { sequelize, User, Post, Code, ActionLog };
+export { sequelize, User, Post, Code, ActionLog, InboxPost };
