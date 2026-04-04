@@ -1,0 +1,20 @@
+{
+  "imports": {
+    "@felix/argon2": "jsr:@felix/argon2@^3.0.5",
+    "@felix/bcrypt": "jsr:@felix/bcrypt@^1.0.8",
+    "@panva/jose": "jsr:@panva/jose@^6.2.2",
+    "chalk": "npm:chalk@^5.6.2",
+    "@emrahcom/jwt": "jsr:@emrahcom/jwt@^0.4.8",
+    "@db/sqlite": "jsr:@db/sqlite@^0.13.0"
+  },
+  "nodeModulesDir": "auto",
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "tasks": {
+    "install": "deno install --allow-all -n install-deps https://deno.land/x/deno_install/install_deps.ts",
+    "start": "deno run --env-file --allow-all main.js"
+  }
+}
