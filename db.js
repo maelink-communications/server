@@ -16,7 +16,29 @@ export function initDB() {
     user_id TEXT,
     uuid TEXT UNIQUE,
     content TEXT,
-    ts INTEGER
+    ts INTEGER,
+    likes INTEGER DEFAULT 0,
+    reply_count INTEGER DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(uuid) ON DELETE SET NULL
+);
+`);
+  db.exec(`CREATE TABLE IF NOT EXISTS replies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uuid TEXT UNIQUE,
+  post_id TEXT REFERENCES posts(uuid) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(uuid) ON DELETE CASCADE,
+  parent_reply_id TEXT REFERENCES replies(uuid) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  ts INTEGER,
+  likes INTEGER DEFAULT 0
+);
+`);
+  db.exec(`CREATE TABLE IF NOT EXISTS comments (
+  id INTEGER PRIMARY KEY,
+  post_id TEXT REFERENCES posts(uuid),
+  user_id TEXT,
+  content TEXT,
+  ts INTEGER
 );
 `);
 }

@@ -12,7 +12,7 @@ const colors = {
 };
 
 function log(message, color = "reset") {
-  log(`${colors[color]}${message}${colors.reset}`);
+  console.log(`${colors[color]}${message}${colors.reset}`);
 }
 
 async function testEndpoint(name, method, path, body = null, headers = {}) {

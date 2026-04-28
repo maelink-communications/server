@@ -32,3 +32,43 @@ export async function fetchPosts(page) {
   const posts = stmt.all(offset);
   return posts;
 }
+
+export async function editPost(token, postId, userId, content) {
+  const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
+  try {
+    const { payload } = await jose.jwtVerify(token, secret);
+    if (payload.uuid !== userId) {
+      throw new Error("Unauthorized");
+    }
+    if (payload.exp < Date.now() / 1000) {
+      throw new Error("Token expired");
+    }
+    db.exec(
+      `UPDATE posts SET content = ?, ts = ? WHERE id = ? AND user_id = ?`,
+      [content, Date.now(), postId, userId],
+    );
+    return true;
+  } catch (e) {
+    throw e;
+  }
+}
+
+export async function destroyPost(token, postId, userId) {
+  const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
+  try {
+    const { payload } = await jose.jwtVerify(token, secret);
+    if (payload.uuid !== userId) {
+      throw new Error("Unauthorized");
+    }
+    if (payload.exp < Date.now() / 1000) {
+      throw new Error("Token expired");
+    }
+    db.exec(
+      `DELETE FROM posts WHERE id = ? AND user_id = ?`,
+      [postId, userId],
+    );
+    return true;
+  } catch (e) {
+    throw e;
+  }
+}

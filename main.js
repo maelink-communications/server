@@ -2,7 +2,7 @@
 // MAKE SURE YOU HAVE A .env FILE WITH THE JWT_SECRET SET!!!
 // Otherwise, authentication will NOT work and tokens will NOT be generated.
 import { register, login } from "./auth.js";
-import { createPost, fetchPosts } from "./home.js";
+import { createPost, editPost, fetchPosts, destroyPost } from "./home.js";
 import { initDB } from "./db.js";
 import { log } from "./logging.js";
 
@@ -78,17 +78,55 @@ Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
       });
     }
   } else if (url.pathname === "/post" && req.method === "PATCH") {
-    // unimplemented
-    return new Response(JSON.stringify({ error: true }), {
-      headers: { "Content-Type": "application/json" },
-      status: 501,
-    });
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: true }), {
+        headers: { "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+    const postdata = await req.json();
+    const token = authHeader.split(" ")[1];
+    try {
+      const post = await editPost(token, postdata.postId, postdata.userId, postdata.content);
+      if (!post) {
+        return new Response(JSON.stringify({ error: true }), {
+          headers: { "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
+      return new Response(JSON.stringify({ error: false }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      log(e, "red");
+      return new Response(JSON.stringify({ error: true }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
   } else if (url.pathname === "/post" && req.method === "DELETE") {
-    // unimplemented
-    return new Response(JSON.stringify({ error: true }), {
-      headers: { "Content-Type": "application/json" },
-      status: 501,
-    });
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader.split(" ")[1];
+    const postdata = await req.json();
+    try {
+      const post = await destroyPost(token, postdata.postId, postdata.userId);
+      if (!post) {
+        return new Response(JSON.stringify({ error: true }), {
+          headers: { "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
+      return new Response(JSON.stringify({ error: false }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      log(e, "red");
+      return new Response(JSON.stringify({ error: true }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
   } else {
     return new Response(JSON.stringify({ error: true }), {
       headers: { "Content-Type": "application/json" },
