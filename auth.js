@@ -9,13 +9,16 @@ export async function register(username, password) {
   const hashedPassword = await hash(password);
   const hashString = typeof hashedPassword === 'string' ? hashedPassword : new TextDecoder().decode(hashedPassword);
   const uuid = crypto.randomUUID();
+  if (username.trim().length < 3) {
+    return JSON.stringify({ success: false, error: "username is too short, must be 3+ characters" });
+  }
   try {
     const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
     const alg = "HS256";
     const token = await new jose.SignJWT({
       uuid: uuid,
       username: username,
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 2,
+      exp: Math.floor(Date.now() / 1000) + 3600 * 2, // 2 hours
     })
       .setProtectedHeader({ alg })
       .setIssuedAt()
