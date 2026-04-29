@@ -14,11 +14,13 @@ Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
   if (url.pathname === "/register" && req.method === "POST") {
     const { username, password } = await req.json();
     const reg = await register(username, password);
-    return Response.json({ reg });
+    return Response.json({ reg: reg });
   } else if (url.pathname === "/login" && req.method === "POST") {
     const { username, password } = await req.json();
     const user = await login(username, password);
-    throw new Error("Not Found");
+    if (!user) {
+      return Response.json({ error: true }, { status: 404 });
+    }
     return Response.json({ error: false, user: user }, { status: 200 });
   } else if (url.pathname === "/post" && req.method === "POST") {
     const authHeader = req.headers.get("Authorization");
