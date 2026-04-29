@@ -23,10 +23,12 @@ export async function register(username, password) {
       .setProtectedHeader({ alg })
       .setIssuedAt()
       .sign(secret);
-    db.exec(`INSERT INTO users (uuid, username, password) VALUES (?, ?, ?)`, [
+    db.exec(`INSERT INTO users (uuid, username, password, pfp, bio) VALUES (?, ?, ?, ?, ?)`, [
       uuid,
       username,
       hashString,
+      "REPLACE WITH PLACEHOLDER PFP IMAGE",
+      "I haven't set a bio yet! Ask me to set one :3"
     ]);
     return JSON.stringify({ success: true, username: username, token: token });
   } catch (e) {

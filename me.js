@@ -13,15 +13,15 @@ export async function fetchUser(token, userId) {
     const username = db.exec(
       `SELECT users.username FROM users WHERE id = ?`,
       [userId]
-    )
+    );
     const pfp = db.exec(
       `SELECT users.pfp FROM users WHERE id = ?`,
       [userId]
-    )
+    );
     const bio = db.exec(
       `SELECT users.bio FROM users WHERE id = ?`,
       [userId]
-    )
+    );
     const followers = db.exec(
       `SELECT users.username FROM followers JOIN users ON users.id=followers.followerID WHERE followedID = ?`,
       [userId]
@@ -33,6 +33,13 @@ export async function fetchUser(token, userId) {
 }
 export async function editUser(token, userId, username, pfp, bio) { // allow changing username?
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
+  const usern = db.exec(
+    `SELECT users.username FROM users WHERE id = ?`,
+    [userId]
+  );
+  if (username !== usern) {
+    return JSON.stringify({ success: false, error: "username does not match user ID" });
+  }
   try {
     const { payload } = await jose.jwtVerify(token, secret);
     if (payload.uuid !== userId) {
@@ -43,17 +50,17 @@ export async function editUser(token, userId, username, pfp, bio) { // allow cha
     }
     if (username.trim().length > 2) { // allow changing username?
       db.exec(
-        `UPDATE users SET username WHERE id = ?`,
+        `UPDATE users.username SET username WHERE id = ?`,
         [userId],
       );
-    } else if (pfp.trim()) {
+    } else if (pfp.trim().length > 7) {
       db.exec(
-        `UPDATE users SET pfp WHERE id = ?`,
+        `UPDATE users.pfp SET pfp WHERE id = ?`,
         [userId],
       );
-    } else if (bio.trim()) {
+    } else if (bio.trim().length > 0) {
       db.exec(
-        `UPDATE users SET bio WHERE id = ?`,
+        `UPDATE users.bio SET bio WHERE id = ?`,
         [userId],
       );
     }

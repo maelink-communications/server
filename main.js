@@ -3,6 +3,7 @@
 // Otherwise, authentication will NOT work and tokens will NOT be generated.
 import { register, login } from "./auth.js";
 import { createPost, editPost, fetchPosts, destroyPost } from "./home.js";
+import { fetchUser, editUser } from "./me.js";
 import { initDB } from "./db.js";
 import { log } from "./logging.js";
 
@@ -111,6 +112,50 @@ Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
     const postdata = await req.json();
     try {
       const post = await destroyPost(token, postdata.postId, postdata.userId);
+      if (!post) {
+        return new Response(JSON.stringify({ error: true }), {
+          headers: { "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
+      return new Response(JSON.stringify({ error: false }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      log(e, "red");
+      return new Response(JSON.stringify({ error: true }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+  } else if (url.pathname === "/user" && req.method === "GET") {
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader.split(" ")[1];
+    const userdata = await req.json();
+    try {
+      const post = await fetchUser(token, userdata.userId);
+      if (!post) {
+        return new Response(JSON.stringify({ error: true }), {
+          headers: { "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
+      return new Response(JSON.stringify({ error: false }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      log(e, "red");
+      return new Response(JSON.stringify({ error: true }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+  } else if (url.pathname === "/user" && req.method === "PATCH") {
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader.split(" ")[1];
+    const userdata = await req.json();
+    try {
+      const post = await editUser(token, userdata.userId, userdata.username, userdata.pfp, userdata.bio);
       if (!post) {
         return new Response(JSON.stringify({ error: true }), {
           headers: { "Content-Type": "application/json" },
