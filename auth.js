@@ -54,7 +54,7 @@ export async function login(username, password) {
       .setProtectedHeader({ alg })
       .setIssuedAt()
       .sign(secret);
-    return Response.json({ ...user, token });
+    return Response.json({ user: user, token: token });
   } catch (e) {
     console.error(e);
     return Response.json({ error: true, msg: e }, { status: 500 });
