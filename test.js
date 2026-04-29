@@ -54,7 +54,8 @@ async function runTests() {
 
   // Test 1: Register a new user
   log("1. Testing User Registration", "yellow");
-  let testUsername = `testuser_${Date.now()}`;
+  const unique = String(Date.now);
+  let testUsername = `testuser_${unique}`;
   let testPassword = "TestPassword123!";
   const registerResult = await testEndpoint(
     "POST /register",
@@ -157,7 +158,7 @@ async function runTests() {
   log("9. Testing Missing Authorization Header", "yellow");
   await testEndpoint("POST /post (no auth)", "POST", "/post", {
     userId: "test-id",
-    content: "This should fail",
+    content: "This should fail (:3)",
   });
   log("");
 
@@ -168,6 +169,40 @@ async function runTests() {
     password: "WrongPassword123!",
   });
   log("");
+
+  // Test 11: Fetch the data of a user
+  if (authToken) {
+    log("11. Fetching Data of User", "yellow");
+    await testEndpoint("GET /user", "GET", "/user",
+      { id: 1 },
+      {
+        Authorization: `Bearer ${authToken}`,
+      }
+    );
+    log("");
+  } else {
+    log("GET /user - Skipping (no token available)", "red");
+  }
+
+  // Test 12: Change the information of the user
+  if (authToken) {
+    log("12. Changing Information of User", "yellow");
+    await testEndpoint("PATCH /user", "PATCH", "/user",
+      { id: 1 },
+      {
+        Authorization: `Bearer ${authToken}`,
+      }
+    );
+    await testEndpoint("GET /user", "GET", "/user",
+      { id: 1 },
+      {
+        Authorization: `Bearer ${authToken}`,
+      }
+    );
+    log("");
+  } else {
+    log("PATCH /user - Skipping (no token available)", "red");
+  }
 
   log("Tests completed.\n", "blue");
 }

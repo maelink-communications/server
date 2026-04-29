@@ -9,21 +9,26 @@ export async function register(username, password) {
   const hashedPassword = await hash(password);
   const hashString = typeof hashedPassword === 'string' ? hashedPassword : new TextDecoder().decode(hashedPassword);
   const uuid = crypto.randomUUID();
+  if (username.trim().length < 3) {
+    throw new Error("username is too short, must be 3+ characters");
+  }
   try {
     const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
     const alg = "HS256";
     const token = await new jose.SignJWT({
       uuid: uuid,
       username: username,
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 2,
+      exp: Math.floor(Date.now() / 1000) + 3600 * 2, // 2 hours
     })
       .setProtectedHeader({ alg })
       .setIssuedAt()
       .sign(secret);
-    db.exec(`INSERT INTO users (uuid, username, password) VALUES (?, ?, ?)`, [
+    db.exec(`INSERT INTO users (uuid, username, password, pfp, bio) VALUES (?, ?, ?, ?, ?)`, [
       uuid,
       username,
       hashString,
+      "REPLACE WITH PLACEHOLDER PFP IMAGE",
+      "I haven't set a bio yet! Ask me to set one :3"
     ]);
     return JSON.stringify({ success: true, username: username, token: token });
   } catch (e) {

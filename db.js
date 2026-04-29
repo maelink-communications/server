@@ -7,8 +7,10 @@ export function initDB() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     uuid TEXT UNIQUE,
-    username TEXT UNIQUE,
-    password TEXT
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    pfp TEXT, -- url to image
+    bio TEXT
 );
 `);
   db.exec(`CREATE TABLE IF NOT EXISTS posts (
@@ -41,8 +43,16 @@ export function initDB() {
   ts INTEGER
 );
 `);
+  db.exec(`CREATE TABLE IF NOT EXISTS followers (
+  followerID INTEGER,
+  followedID INTEGER,
+  PRIMARY KEY (followerID, followedID),
+  FOREIGN KEY (followerID) REFERENCES users(id),
+  FOREIGN KEY (followedID) REFERENCES users(id)
+);
+`);
 }
 
 export function connectDB() {
-  return new Database("prealpha.db");
+  return db;
 }

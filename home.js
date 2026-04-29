@@ -28,6 +28,7 @@ export async function fetchPosts(page) {
   const offset = (page - 1) * 25;
   const stmt = db.prepare(
     `SELECT * FROM posts ORDER BY id DESC LIMIT 25 OFFSET ?`,
+    [offset]
   );
   const posts = stmt.all(offset);
   return posts;
