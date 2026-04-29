@@ -18,6 +18,7 @@ Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
   } else if (url.pathname === "/login" && req.method === "POST") {
     const { username, password } = await req.json();
     const user = await login(username, password);
+    console.log("user: ", user);
     if (!user) {
       return Response.json({ error: true }, { status: 404 });
     }
