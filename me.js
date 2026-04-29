@@ -6,10 +6,10 @@ export async function fetchUser(token, userId) {
   try {
     const { payload } = await jose.jwtVerify(token, secret);
     if (payload.uuid !== userId) {
-      throw new Error("Unauthorized");
+      return Response.json({ error: true }, { status: 401 });
     }
     if (payload.exp < Date.now() / 1000) {
-      throw new Error("Token expired");
+      return Response.json({ error: true }, { status: 401 });
     }
     const username = db.exec(
       `SELECT users.username FROM users WHERE id = ?`,
@@ -27,7 +27,7 @@ export async function fetchUser(token, userId) {
       `SELECT users.username FROM followers JOIN users ON users.id=followers.followerID WHERE followedID = ?`,
       [userId]
     );
-    return JSON.stringify({ success: true, username: username, pfp: pfp, bio: bio, followers: followers });
+    return Response.json({ success: true, username: username, pfp: pfp, bio: bio, followers: followers });
   } catch (e) {
     throw e;
   }
@@ -37,10 +37,10 @@ export async function editUser(token, userId, username, pfp, bio) { // allow cha
   try {
     const { payload } = await jose.jwtVerify(token, secret);
     if (payload.uuid !== userId) {
-      throw new Error("Unauthorized");
+      return Response.json({ error: true }, { status: 401 });
     }
     if (payload.exp < Date.now() / 1000) {
-      throw new Error("Token expired");
+      return Response.json({ error: true }, { status: 401 });
     }
     if (username && username.trim().length > 2) { // allow changing username?
       db.exec(
@@ -60,7 +60,7 @@ export async function editUser(token, userId, username, pfp, bio) { // allow cha
         [bio, userId],
       );
     }
-    return true;
+    return Response.json({ error: false });
   } catch (e) {
     throw e;
   }

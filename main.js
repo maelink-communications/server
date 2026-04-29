@@ -14,48 +14,28 @@ Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
   if (url.pathname === "/register" && req.method === "POST") {
     const { username, password } = await req.json();
     const reg = await register(username, password);
-    return new Response(JSON.stringify({ reg }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return Response.json({ reg });
   } else if (url.pathname === "/login" && req.method === "POST") {
     const { username, password } = await req.json();
     const user = await login(username, password);
-    if (!user) {
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 404,
-      });
-    }
-    return new Response(JSON.stringify({ error: false, user }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    throw new Error("Not Found");
+    return Response.json({ error: false, user: user }, { status: 200 });
   } else if (url.pathname === "/post" && req.method === "POST") {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 401,
-      });
+      return Response.json({ error: true }, { status: 401 });
     }
     const postdata = await req.json();
     const token = authHeader.split(" ")[1];
     try {
       const post = await createPost(token, postdata.userId, postdata.content);
       if (!post) {
-        return new Response(JSON.stringify({ error: true }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400,
-        });
+        return Response.json({ error: true }, { status: 400 });
       }
-      return new Response(JSON.stringify({ error: false }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return Response.json({ error: false });
     } catch (e) {
       log(e, "red");
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
+      return Response.json({ error: true }, { status: 400 });
     }
   } else if (url.pathname === "/home" && req.method === "POST") {
     const pageHeader = req.headers.get("p");
@@ -65,46 +45,27 @@ Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
     }
     try {
       const returnedPosts = await fetchPosts(page);
-      return new Response(
-        JSON.stringify({ error: false, page: page, posts: returnedPosts }),
-        {
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+      return Response.json({ error: false, page: page, posts: returnedPosts });
     } catch (e) {
       log(e, "red");
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
+      return Response.json({ error: true }, { status: 400 });
     }
   } else if (url.pathname === "/post" && req.method === "PATCH") {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 401,
-      });
+      return Response.json({ error: true }, { status: 401 });
     }
     const postdata = await req.json();
     const token = authHeader.split(" ")[1];
     try {
       const post = await editPost(token, postdata.postId, postdata.userId, postdata.content);
       if (!post) {
-        return new Response(JSON.stringify({ error: true }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400,
-        });
+        return Response.json({ error: true }, { status: 400 });
       }
-      return new Response(JSON.stringify({ error: false }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return Response.json({ error: false });
     } catch (e) {
       log(e, "red");
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
+      return Response.json({ error: true }, { status: 400 });
     }
   } else if (url.pathname === "/post" && req.method === "DELETE") {
     const authHeader = req.headers.get("Authorization");
@@ -113,82 +74,49 @@ Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
     try {
       const post = await destroyPost(token, postdata.postId, postdata.userId);
       if (!post) {
-        return new Response(JSON.stringify({ error: true }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400,
-        });
+        return Response.json({ error: true }, { status: 400 });
       }
-      return new Response(JSON.stringify({ error: false }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return Response.json({ error: false })
     } catch (e) {
       log(e, "red");
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
+      return Response.json({ error: true }, { status: 400 });
     }
   } else if (url.pathname.startsWith("/user/") && req.method === "GET") {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 401,
-      });
+      return Response.json({ error: true }, { status: 401 });
     }
     const userId = url.pathname.split("/")[2];
     const token = authHeader.split(" ")[1];
     try {
       const user = await fetchUser(token, userId);
       if (!user) {
-        return new Response(JSON.stringify({ error: true }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400,
-        });
+        return Response.json({ error: true }, { status: 400 });
       }
-      return new Response(JSON.stringify({ error: false, user }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return Response.json({ error: false, user: user });
     } catch (e) {
       log(e, "red");
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
+      return Response.json({ error: true }, { status: 400 });
     }
   } else if (url.pathname === "/user" && req.method === "PATCH") {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 401,
-      });
+      return Response.json({ error: true }, { status: 401 });
     }
     const userdata = await req.json();
     const token = authHeader.split(" ")[1];
     try {
       const user = await editUser(token, userdata.id, userdata.username, userdata.pfp, userdata.bio);
       if (!user) {
-        return new Response(JSON.stringify({ error: true }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400,
-        });
+        return Response.json({ error: true }, { status: 400 });
       }
-      return new Response(JSON.stringify({ error: false }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return Response.json({ error: false });
     } catch (e) {
       log(e, "red");
-      return new Response(JSON.stringify({ error: true }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
+      return Response.json({ error: true }, { status: 400 });
     }
   } else {
-    return new Response(JSON.stringify({ error: true }), {
-      headers: { "Content-Type": "application/json" },
-      status: 404,
-    });
+    return Response.json({ error: true }, { status: 404 });
   }
 });
 

@@ -9,16 +9,16 @@ export async function createPost(token, userId, content) {
   try {
     const { payload } = await jose.jwtVerify(token, secret);
     if (payload.uuid !== userId) {
-      throw new Error("Unauthorized");
+      return Response.json({ error: true }, { status: 401 });
     }
     if (payload.exp < Date.now() / 1000) {
-      throw new Error("Token expired");
+      return Response.json({ error: true }, { status: 401 });
     }
     db.exec(
       `INSERT INTO posts (uuid, user_id, content, ts) VALUES (?, ?, ?, ?)`,
       [crypto.randomUUID(), userId, content, Date.now()],
     );
-    return true;
+    return Response.json({ error: false });
   } catch (e) {
     throw e;
   }
@@ -31,7 +31,7 @@ export async function fetchPosts(page) {
     [offset]
   );
   const posts = stmt.all(offset);
-  return posts;
+  return Response.json({ posts: posts });
 }
 
 export async function editPost(token, postId, userId, content) {
@@ -39,16 +39,16 @@ export async function editPost(token, postId, userId, content) {
   try {
     const { payload } = await jose.jwtVerify(token, secret);
     if (payload.uuid !== userId) {
-      throw new Error("Unauthorized");
+      return Response.json({ error: true }, { status: 401 });
     }
     if (payload.exp < Date.now() / 1000) {
-      throw new Error("Token expired");
+      return Response.json({ error: true }, { status: 401 });
     }
     db.exec(
       `UPDATE posts SET content = ?, ts = ? WHERE id = ? AND user_id = ?`,
       [content, Date.now(), postId, userId],
     );
-    return true;
+    return Response.json({ error: false });
   } catch (e) {
     throw e;
   }
@@ -59,16 +59,16 @@ export async function destroyPost(token, postId, userId) {
   try {
     const { payload } = await jose.jwtVerify(token, secret);
     if (payload.uuid !== userId) {
-      throw new Error("Unauthorized");
+      return Response.json({ error: true }, { status: 401 });
     }
     if (payload.exp < Date.now() / 1000) {
-      throw new Error("Token expired");
+      return Response.json({ error: true }, { status: 401 });
     }
     db.exec(
       `DELETE FROM posts WHERE id = ? AND user_id = ?`,
       [postId, userId],
     );
-    return true;
+    return Response.json({ error: false });
   } catch (e) {
     throw e;
   }

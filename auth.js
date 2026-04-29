@@ -28,9 +28,9 @@ export async function register(username, password) {
       username,
       hashString,
       "REPLACE WITH PLACEHOLDER PFP IMAGE",
-      "I haven't set a bio yet! Ask me to set one :3"
+      null
     ]);
-    return JSON.stringify({ success: true, username: username, token: token });
+    return Response.json({ error: false, username: username, token: token });
   } catch (e) {
     console.error(e);
     return false;
@@ -55,7 +55,7 @@ export async function login(username, password) {
       .setProtectedHeader({ alg })
       .setIssuedAt()
       .sign(secret);
-    return { ...user, token };
+    return Response.json({ ...user, token });
   } catch (e) {
     console.error(e);
     return false;
