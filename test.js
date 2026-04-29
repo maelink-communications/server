@@ -45,6 +45,7 @@ Deno.test("API flow", async (t) => {
       username,
       password,
     });
+    console.log("Data from login request: ", data)
 
     assertEquals(res.status, 200);
     assert(data && data.user && data.user.token);
