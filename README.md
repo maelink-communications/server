@@ -2,6 +2,7 @@
 
 ### MAKE SURE YOU HAVE A .env FILE WITH THE JWT_SECRET SET!!!
 **Otherwise, authentication will NOT work and tokens will NOT be generated.**
+
 **NOTE: JWT_SECRET MUST HAVE A LENGTH OF 256 BITS**
 
 ## Registered endpoints:
