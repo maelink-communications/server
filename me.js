@@ -38,7 +38,7 @@ export async function editUser(token, userId, username, pfp, bio) { // allow cha
     [userId]
   );
   if (username !== usern) {
-    return JSON.stringify({ success: false, error: "username does not match user ID" });
+    throw new Error("username does not match user ID");
   }
   try {
     const { payload } = await jose.jwtVerify(token, secret);

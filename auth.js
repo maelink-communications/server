@@ -10,7 +10,7 @@ export async function register(username, password) {
   const hashString = typeof hashedPassword === 'string' ? hashedPassword : new TextDecoder().decode(hashedPassword);
   const uuid = crypto.randomUUID();
   if (username.trim().length < 3) {
-    return JSON.stringify({ success: false, error: "username is too short, must be 3+ characters" });
+    throw new Error("username is too short, must be 3+ characters");
   }
   try {
     const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
