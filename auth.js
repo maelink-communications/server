@@ -7,6 +7,12 @@ const db = connectDB();
 log("Auth module loaded", "gray");
 export async function register(username, password) {
   const hashedPassword = await hash(password);
+  try {
+    await hash(password) === hashedPassword;
+  } catch (e) {
+    log("Error verifying hash: " + e.message, "red");
+    false;
+  }
   const hashString = typeof hashedPassword === 'string' ? hashedPassword : new TextDecoder().decode(hashedPassword);
   const uuid = crypto.randomUUID();
   if (username.trim().length < 3) {
@@ -38,23 +44,33 @@ export async function register(username, password) {
 }
 
 export async function login(username, password) {
-  const user = db.exec(`SELECT * FROM users WHERE username = ?`, [username]);
-  if (!user) return Response.json({ error: true, msg: "user does not exist" }, { status: 400 });
+  const user = db.prepare(`SELECT * FROM users WHERE username = ?`);
+  const result = user.all(username);
+  if (result.length === 0) return Response.json({ error: true, msg: "user does not exist" }, { status: 400 });
   try {
     const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
+    console.log(result);
     const alg = "HS256";
-    const passwordHash = typeof user.password === 'string' ? user.password : new TextDecoder().decode(user.password);
+    const storedHash = result[0].password;
+    console.log("Stored hash: ", storedHash);
+    const passwordHash = storedHash;
     const isValid = await verify(passwordHash, password);
     if (!isValid) return Response.json({ error: true, msg: "invalid" }, { status: 400 });
+    const userObject = {
+      uuid: result[0].uuid,
+      username: result[0].username,
+      pfp: result[0].pfp,
+      bio: result[0].bio
+    };
     const token = await new jose.SignJWT({
-      uuid: user.uuid,
-      username: user.username,
+      uuid: result[0].uuid,
+      username: result[0].username,
       exp: Math.floor(Date.now() / 1000) + 60 * 60 * 2,
     })
       .setProtectedHeader({ alg })
       .setIssuedAt()
       .sign(secret);
-    return Response.json({ user: user, token: token });
+    return Response.json({ user: userObject, token: token });
   } catch (e) {
     console.error(e);
     return Response.json({ error: true, msg: e }, { status: 500 });
