@@ -34,3 +34,9 @@ Inbox - fetch, notif sending... (i know what you did)
 Admin/mod - grant mod statuses, mod actions on everything, sending to inboxes, etc. (please stoppppp)
 
 ALL should be done before a public beta.
+## HOW TO RUN
+1. run `git clone [repository (mae)link]` and `cd` into the folder
+2. ensure you have deno and node.js installed
+3. install required packages with `deno task install`
+4. run `deno task start` to start the server
+5. run `node test.js` and the program will automatically test endpoints and report errors for you
