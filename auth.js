@@ -27,7 +27,7 @@ export async function register(username, password) {
       uuid,
       username,
       hashString,
-      "REPLACE WITH PLACEHOLDER PFP IMAGE",
+      "replace with placeholder image",
       null
     ]);
     return Response.json({ error: false, username: username, token: token });
@@ -38,8 +38,7 @@ export async function register(username, password) {
 }
 
 export async function login(username, password) {
-  const stmt = db.prepare(`SELECT * FROM users WHERE username = ?`);
-  const user = stmt.get(username);
+  const user = db.exec(`SELECT * FROM users WHERE username = ?`, [username]);
   if (!user) return Response.json({ error: true, msg: "user does not exist" }, { status: 400 });
   try {
     const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
