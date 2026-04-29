@@ -40,13 +40,13 @@ export async function register(username, password) {
 export async function login(username, password) {
   const stmt = db.prepare(`SELECT * FROM users WHERE username = ?`);
   const user = stmt.get(username);
-  if (!user) return Response.json({ error: true }, { status: 400 });
+  if (!user) return Response.json({ error: true, msg: "user does not exist" }, { status: 400 });
   try {
     const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
     const alg = "HS256";
     const passwordHash = typeof user.password === 'string' ? user.password : new TextDecoder().decode(user.password);
     const isValid = await verify(passwordHash, password);
-    if (!isValid) return Response.json({ error: true }, { status: 400 });
+    if (!isValid) return Response.json({ error: true, msg: "invalid" }, { status: 400 });
     const token = await new jose.SignJWT({
       uuid: user.uuid,
       username: user.username,
@@ -58,6 +58,6 @@ export async function login(username, password) {
     return Response.json({ ...user, token });
   } catch (e) {
     console.error(e);
-    return Response.json({ error: true }, { status: 500 });
+    return Response.json({ error: true, msg: e }, { status: 500 });
   }
 }
