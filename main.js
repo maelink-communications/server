@@ -128,19 +128,25 @@ Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
         status: 400,
       });
     }
-  } else if (url.pathname === "/user" && req.method === "GET") {
+  } else if (url.pathname.startsWith("/user/") && req.method === "GET") {
     const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: true }), {
+        headers: { "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+    const userId = url.pathname.split("/")[2];
     const token = authHeader.split(" ")[1];
-    const userdata = await req.json();
     try {
-      const post = await fetchUser(token, userdata.userId);
-      if (!post) {
+      const user = await fetchUser(token, userId);
+      if (!user) {
         return new Response(JSON.stringify({ error: true }), {
           headers: { "Content-Type": "application/json" },
           status: 400,
         });
       }
-      return new Response(JSON.stringify({ error: false }), {
+      return new Response(JSON.stringify({ error: false, user }), {
         headers: { "Content-Type": "application/json" },
       });
     } catch (e) {
@@ -152,11 +158,17 @@ Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
     }
   } else if (url.pathname === "/user" && req.method === "PATCH") {
     const authHeader = req.headers.get("Authorization");
-    const token = authHeader.split(" ")[1];
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: true }), {
+        headers: { "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
     const userdata = await req.json();
+    const token = authHeader.split(" ")[1];
     try {
-      const post = await editUser(token, userdata.userId, userdata.username, userdata.pfp, userdata.bio);
-      if (!post) {
+      const user = await editUser(token, userdata.id, userdata.username, userdata.pfp, userdata.bio);
+      if (!user) {
         return new Response(JSON.stringify({ error: true }), {
           headers: { "Content-Type": "application/json" },
           status: 400,

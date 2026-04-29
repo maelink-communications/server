@@ -1,211 +1,158 @@
-// Testing feature parity and functionality
+import { assert, assertEquals } from "jsr:@std/assert";
 
 const BASE_URL = "http://localhost:7000";
 
-// Colors for console output
-const colors = {
-  reset: "\x1b[0m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-  yellow: "\x1b[33m",
-  blue: "\x1b[34m",
-};
-
-function log(message, color = "reset") {
-  console.log(`${colors[color]}${message}${colors.reset}`);
-}
-
-async function testEndpoint(name, method, path, body = null, headers = {}) {
-  try {
-    const options = {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...headers,
-      },
-    };
-
-    if (body) {
-      options.body = JSON.stringify(body);
-    }
-
-    const response = await fetch(`${BASE_URL}${path}`, options);
-    const data = await response.json();
-
-    if (response.ok) {
-      log(`${name}`, "green");
-      log(`  Status: ${response.status}`);
-      log(`  Response:`, JSON.stringify(data, null, 2));
-    } else {
-      log(`${name}`, "red");
-      log(`  Status: ${response.status}`);
-      log(`  Response:`, JSON.stringify(data, null, 2));
-    }
-
-    return { success: response.ok, data, status: response.status };
-  } catch (e) {
-    log(`✗ ${name} - Error: ${e.message}`, "red");
-    return { success: false, error: e.message };
-  }
-}
-
-async function runTests() {
-  log("\nBeginning tests...\n", "blue");
-
-  // Test 1: Register a new user
-  log("1. Testing User Registration", "yellow");
-  const unique = String(Date.now);
-  let testUsername = `testuser_${unique}`;
-  let testPassword = "TestPassword123!";
-  const registerResult = await testEndpoint(
-    "POST /register",
-    "POST",
-    "/register",
-    {
-      username: testUsername,
-      password: testPassword,
+async function request(method, path, body, headers = {}) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
     },
-  );
-  log("");
-
-  // Test 2: Login with credentials
-  log("2. Testing User Login", "yellow");
-  const loginResult = await testEndpoint("POST /login", "POST", "/login", {
-    username: testUsername,
-    password: testPassword,
+    body: body ? JSON.stringify(body) : undefined,
   });
-  log("");
 
-  // Extract token from login response
-  let authToken = null;
-  if (loginResult.success && loginResult.data.user) {
-    authToken = loginResult.data.user.token;
-    log(`Token extracted: ${authToken.substring(0, 20)}...`, "green");
-  } else {
-    log("Could not extract token for subsequent tests...", "red");
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    // ignore non-json responses
   }
-  log("");
 
-  // Test 3: Create a post (requires token)
-  if (authToken) {
-    log("3. Testing Post Creation", "yellow");
-    const userId = loginResult.data.user.uuid;
-    await testEndpoint(
-      "POST /post",
+  return { res, data };
+}
+
+Deno.test("API flow", async (t) => {
+  const unique = Date.now().toString();
+  const username = `testuser_${unique}`;
+  const password = "TestPassword123!";
+
+  let token = null;
+  let userId = null;
+
+  await t.step("Register user", async () => {
+    const { res, data } = await request("POST", "/register", {
+      username,
+      password,
+    });
+
+    assert(res.status === 200 || res.status === 201);
+    assert(data);
+  });
+
+  await t.step("Login user", async () => {
+    const { res, data } = await request("POST", "/login", {
+      username,
+      password,
+    });
+
+    assertEquals(res.status, 200);
+    assert(data && data.user && data.user.token);
+
+    token = data.user.token;
+    userId = data.user.uuid;
+  });
+
+  await t.step("Create post", async () => {
+    if (!token || !userId) return;
+
+    const { res } = await request(
       "POST",
       "/post",
       {
-        userId: userId,
+        userId,
         content: `Test post at ${new Date().toISOString()}`,
       },
       {
-        Authorization: `Bearer ${authToken}`,
+        Authorization: `Bearer ${token}`,
       },
     );
-    log("");
-  }
 
-  // Test 4: Fetch posts
-  log("4. Testing Fetch Posts", "yellow");
-  await testEndpoint("POST /home (page 1)", "POST", "/home", null, { p: "1" });
-  log("");
+    assertEquals(res.status, 200);
+  });
 
-  // Test 5: Fetch posts with different page
-  log("5. Testing Fetch Posts (Page 2)", "yellow");
-  await testEndpoint("POST /home (page 2)", "POST", "/home", null, { p: "2" });
-  log("");
+  await t.step("Fetch posts page 1", async () => {
+    const { res } = await request("POST", "/home", undefined, { p: "1" });
+    assertEquals(res.status, 200);
+  });
 
-  // Test 6: Test unimplemented PATCH endpoint
-  log("6. Testing Unimplemented PATCH /post", "yellow");
-  if (authToken) {
-    await testEndpoint(
-      "PATCH /post",
+  await t.step("Fetch posts page 2", async () => {
+    const { res } = await request("POST", "/home", undefined, { p: "2" });
+    assertEquals(res.status, 200);
+  });
+
+  await t.step("PATCH /post (expected failure)", async () => {
+    if (!token) return;
+
+    const { res } = await request(
       "PATCH",
       "/post",
       { id: 1, content: "Updated content" },
-      {
-        Authorization: `Bearer ${authToken}`,
-      },
+      { Authorization: `Bearer ${token}` },
     );
-  } else {
-    log("PATCH /post - Skipping (no token available)", "red");
-  }
-  log("");
 
-  // Test 7: Test unimplemented DELETE endpoint
-  log("7. Testing Unimplemented DELETE /post", "yellow");
-  if (authToken) {
-    await testEndpoint(
-      "DELETE /post",
+    assert(res.status >= 400);
+  });
+
+  await t.step("DELETE /post (expected failure)", async () => {
+    if (!token) return;
+
+    const { res } = await request(
       "DELETE",
       "/post",
       { id: 1 },
-      {
-        Authorization: `Bearer ${authToken}`,
-      },
+      { Authorization: `Bearer ${token}` },
     );
-  } else {
-    log("DELETE /post - Skipping (no token available)", "red");
-  }
-  log("");
 
-  // Test 8: Test 404 endpoint
-  log("8. Testing 404 Error Handling", "yellow");
-  await testEndpoint("GET /nonexistent", "GET", "/nonexistent");
-  log("");
-
-  // Test 9: Test missing authorization
-  log("9. Testing Missing Authorization Header", "yellow");
-  await testEndpoint("POST /post (no auth)", "POST", "/post", {
-    userId: "test-id",
-    content: "This should fail (:3)",
+    assert(res.status >= 400);
   });
-  log("");
 
-  // Test 10: Test login with invalid credentials
-  log("10. Testing Login with Invalid Credentials", "yellow");
-  await testEndpoint("POST /login (invalid)", "POST", "/login", {
-    username: "nonexistent_user",
-    password: "WrongPassword123!",
+  await t.step("404 handling", async () => {
+    const { res } = await request("GET", "/nonexistent");
+    assertEquals(res.status, 404);
   });
-  log("");
 
-  // Test 11: Fetch the data of a user
-  if (authToken) {
-    log("11. Fetching Data of User", "yellow");
-    await testEndpoint("GET /user", "GET", "/user",
-      { id: 1 },
-      {
-        Authorization: `Bearer ${authToken}`,
-      }
+  await t.step("Missing auth header", async () => {
+    const { res } = await request("POST", "/post", {
+      userId: "test-id",
+      content: "This should fail",
+    });
+
+    assert(res.status === 401 || res.status === 403);
+  });
+
+  await t.step("Invalid login", async () => {
+    const { res } = await request("POST", "/login", {
+      username: "nonexistent_user",
+      password: "WrongPassword123!",
+    });
+
+    assert(res.status >= 400);
+  });
+
+  await t.step("Get user data", async () => {
+    if (!token) return;
+
+    const { res } = await request(
+      "GET",
+      "/user/" + userId,
+      undefined,
+      { Authorization: `Bearer ${token}` },
     );
-    log("");
-  } else {
-    log("GET /user - Skipping (no token available)", "red");
-  }
 
-  // Test 12: Change the information of the user
-  if (authToken) {
-    log("12. Changing Information of User", "yellow");
-    await testEndpoint("PATCH /user", "PATCH", "/user",
-      { id: 1 },
-      {
-        Authorization: `Bearer ${authToken}`,
-      }
+    assertEquals(res.status, 200);
+  });
+
+  await t.step("Update user", async () => {
+    if (!token || !userId) return;
+
+    const patch = await request(
+      "PATCH",
+      "/user",
+      { id: userId },
+      { Authorization: `Bearer ${token}` },
     );
-    await testEndpoint("GET /user", "GET", "/user",
-      { id: 1 },
-      {
-        Authorization: `Bearer ${authToken}`,
-      }
-    );
-    log("");
-  } else {
-    log("PATCH /user - Skipping (no token available)", "red");
-  }
 
-  log("Tests completed.\n", "blue");
-}
-
-// Run tests
-runTests().catch(console.error);
+    assert(patch.res.status === 200 || patch.res.status === 204);
+  });
+});
