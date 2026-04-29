@@ -1,3 +1,4 @@
+import * as jose from "@panva/jose";
 import { connectDB } from './db.js';
 const db = connectDB();
 export async function fetchUser(token, userId) {
@@ -33,13 +34,6 @@ export async function fetchUser(token, userId) {
 }
 export async function editUser(token, userId, username, pfp, bio) { // allow changing username?
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-  const usern = db.exec(
-    `SELECT users.username FROM users WHERE id = ?`,
-    [userId]
-  );
-  if (username !== usern) {
-    throw new Error("username does not match user ID");
-  }
   try {
     const { payload } = await jose.jwtVerify(token, secret);
     if (payload.uuid !== userId) {
@@ -48,20 +42,22 @@ export async function editUser(token, userId, username, pfp, bio) { // allow cha
     if (payload.exp < Date.now() / 1000) {
       throw new Error("Token expired");
     }
-    if (username.trim().length > 2) { // allow changing username?
+    if (username && username.trim().length > 2) { // allow changing username?
       db.exec(
-        `UPDATE users.username SET username WHERE id = ?`,
-        [userId],
+        `UPDATE users SET username = ? WHERE id = ?`,
+        [username, userId],
       );
-    } else if (pfp.trim().length > 7) {
+    }
+    if (pfp && pfp.trim().length > 7) {
       db.exec(
-        `UPDATE users.pfp SET pfp WHERE id = ?`,
-        [userId],
+        `UPDATE users SET pfp = ? WHERE id = ?`,
+        [pfp, userId],
       );
-    } else if (bio.trim().length > 0) {
+    }
+    if (bio && bio.trim().length > 0) {
       db.exec(
-        `UPDATE users.bio SET bio WHERE id = ?`,
-        [userId],
+        `UPDATE users SET bio = ? WHERE id = ?`,
+        [bio, userId],
       );
     }
     return true;

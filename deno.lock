@@ -8,6 +8,7 @@
     "jsr:@felix/argon2@^3.0.5": "3.0.5",
     "jsr:@felix/bcrypt@^1.0.8": "1.0.8",
     "jsr:@panva/jose@^6.2.2": "6.2.2",
+    "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/encoding@1": "1.0.10",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/fmt@1": "1.0.9",
@@ -55,6 +56,12 @@
     },
     "@panva/jose@6.2.2": {
       "integrity": "bfe1178a9d2f53effa5ee6c1786b6534a39690b03969472b3ad690600d8898ec"
+    },
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
     },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
