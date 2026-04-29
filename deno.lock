@@ -4,17 +4,17 @@
     "jsr:@db/sqlite@0.13": "0.13.0",
     "jsr:@denosaurs/plug@1": "1.1.0",
     "jsr:@denosaurs/plug@^1.1.0": "1.1.0",
-    "jsr:@emrahcom/jwt@~0.4.8": "0.4.8",
+    "jsr:@emrahcom/jwt@~0.4.8": "0.4.9",
     "jsr:@felix/argon2@^3.0.5": "3.0.5",
     "jsr:@felix/bcrypt@^1.0.8": "1.0.8",
     "jsr:@panva/jose@^6.2.2": "6.2.2",
-    "jsr:@std/assert@*": "1.0.19",
+    "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/encoding@1": "1.0.10",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
-    "jsr:@std/fmt@1": "1.0.9",
+    "jsr:@std/fmt@1": "1.0.10",
     "jsr:@std/fs@1": "1.0.23",
-    "jsr:@std/internal@^1.0.12": "1.0.12",
-    "jsr:@std/path@1": "1.1.4",
+    "jsr:@std/internal@^1.0.12": "1.0.13",
+    "jsr:@std/path@1": "1.0.9",
     "jsr:@std/path@1.0": "1.0.9",
     "jsr:@std/path@^1.1.4": "1.1.4",
     "npm:chalk@^5.6.2": "5.6.2"
@@ -36,8 +36,8 @@
         "jsr:@std/path@1"
       ]
     },
-    "@emrahcom/jwt@0.4.8": {
-      "integrity": "6df4948e2b1aa5f2947d8a5bd2f5b96235a75da7efd4eddf47b228b3c67934ff",
+    "@emrahcom/jwt@0.4.9": {
+      "integrity": "0d90f3896e2c516f8c248ec9fa28b1fc15ca258de24a06f69382cdb993bfae29",
       "dependencies": [
         "jsr:@std/encoding@^1.0.10"
       ]
@@ -66,8 +66,8 @@
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     },
-    "@std/fmt@1.0.9": {
-      "integrity": "2487343e8899fb2be5d0e3d35013e54477ada198854e52dd05ed0422eddcabe0"
+    "@std/fmt@1.0.10": {
+      "integrity": "90dfba288802ac6de82fb31d0917eb9e4450b9925b954d5e51fc29ac07419db5"
     },
     "@std/fs@1.0.23": {
       "integrity": "3ecbae4ce4fee03b180fa710caff36bb5adb66631c46a6460aaad49515565a37",
@@ -76,8 +76,8 @@
         "jsr:@std/path@^1.1.4"
       ]
     },
-    "@std/internal@1.0.12": {
-      "integrity": "972a634fd5bc34b242024402972cd5143eac68d8dffaca5eaa4dba30ce17b027"
+    "@std/internal@1.0.13": {
+      "integrity": "2f9546691d4ac2d32859c82dff284aaeac980ddeca38430d07941e7e288725c0"
     },
     "@std/path@1.0.9": {
       "integrity": "260a49f11edd3db93dd38350bf9cd1b4d1366afa98e81b86167b4e3dd750129e"
@@ -139,6 +139,7 @@
       "jsr:@felix/argon2@^3.0.5",
       "jsr:@felix/bcrypt@^1.0.8",
       "jsr:@panva/jose@^6.2.2",
+      "jsr:@std/assert@^1.0.19",
       "npm:chalk@^5.6.2"
     ]
   }

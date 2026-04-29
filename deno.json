@@ -5,7 +5,8 @@
     "@panva/jose": "jsr:@panva/jose@^6.2.2",
     "chalk": "npm:chalk@^5.6.2",
     "@emrahcom/jwt": "jsr:@emrahcom/jwt@^0.4.8",
-    "@db/sqlite": "jsr:@db/sqlite@^0.13.0"
+    "@db/sqlite": "jsr:@db/sqlite@^0.13.0",
+    "@std/assert": "jsr:@std/assert@^1.0.19"
   },
   "nodeModulesDir": "auto",
   "lint": {
@@ -14,7 +15,7 @@
     }
   },
   "tasks": {
-    "install": "deno install --allow-all -n install-deps https://deno.land/x/deno_install/install_deps.ts",
+    "install": "deno cache --reload main.js",
     "start": "deno run --env-file --allow-all main.js"
   }
 }
