@@ -36,7 +36,7 @@ export async function register(username, password) {
       "replace with placeholder image",
       null
     ]);
-    return Response.json({ error: false, username: username, token: token });
+    return { error: false, username: username, token: token, uuid: uuid };
   } catch (e) {
     console.error(e);
     return false;
@@ -47,7 +47,7 @@ export async function login(username, password) {
   const user = db.prepare(`SELECT * FROM users WHERE username = ?`);
   const result = user.all(username);
   console.log("result: ", result);
-  if (result.length === 0) return Response.json({ error: true, msg: "user does not exist" }, { status: 400 });
+  if (result.length === 0) return false;
   try {
     const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
     console.log("jwt_secret: ", Deno.env.get("JWT_SECRET"))
@@ -56,13 +56,7 @@ export async function login(username, password) {
     console.log("Stored hash: ", storedHash);
     const passwordHash = storedHash;
     const isValid = await verify(passwordHash, password);
-    if (!isValid) return Response.json({ error: true, msg: "invalid" }, { status: 403 });
-    const userObject = {
-      uuid: result[0].uuid,
-      username: result[0].username,
-      pfp: result[0].pfp,
-      bio: result[0].bio
-    };
+    if (!isValid) return false;
     const token = await new jose.SignJWT({
       uuid: result[0].uuid,
       username: result[0].username,
@@ -71,9 +65,16 @@ export async function login(username, password) {
       .setProtectedHeader({ alg })
       .setIssuedAt()
       .sign(secret);
-    return Response.json({ user: userObject, token: token });
+    const userObject = {
+      uuid: result[0].uuid,
+      username: result[0].username,
+      pfp: result[0].pfp,
+      bio: result[0].bio,
+      token: token
+    };
+    return userObject;
   } catch (e) {
     console.error(e);
-    return Response.json({ error: true, msg: e.message }, { status: 500 });
+    return false;
   }
 }

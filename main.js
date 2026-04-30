@@ -49,13 +49,14 @@ async function handler(req) {
   if (pathname === "/register" && method === "POST") {
     const { username, password } = await req.json();
     const reg = await register(username, password);
-    return json({ reg });
+    if (!reg) return json({ error: true }, 400);
+    return json({ error: false, user: reg });
   }
 
   if (pathname === "/login" && method === "POST") {
     const { username, password } = await req.json();
     const user = await login(username, password);
-    if (!user) return json({ error: true }, 404);
+    if (!user) return json({ error: true }, 401);
     return json({ error: false, user });
   }
 
