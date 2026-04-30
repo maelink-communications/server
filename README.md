@@ -1,9 +1,8 @@
-# maelink server | codename protokol
-
-### MAKE SURE YOU HAVE A .env FILE WITH THE JWT_SECRET SET!!!
+# maelink server
+Work in progress - project PROTOKOL
+### MAKE SURE YOU HAVE A .env FILE WITH THE JWT_SECRET SET!
 **Otherwise, authentication will NOT work and tokens will NOT be generated.**
-
-**NOTE: JWT_SECRET MUST HAVE A LENGTH OF 256 BITS**
+#### Note: JWT_SECRET length must add up to 256 bytes!
 
 ## Registered endpoints:
 POST /register - Register a new user
@@ -21,24 +20,26 @@ DELETE /post - Delete post (requires Authorization header)
 Home - post interactions:
 - Liking posts
 - Commenting on posts  
-- Replying to posts(?)
+- Replying to posts(?)<br>
+**Home is the very core of the service and as such is top priority!**
 
 Bubbles - entire implementation:
 - Bubble creation, modification and deletion
 - Channel creation, modification and deletion
 - Posting (and everything to do with home posts except with no likes or reposts and such)
-User - fetch, edit, etc. /me endpoint needed! ✅ (partially, don't just say "etc")
 
-Settings - fetch, edit, etc. (don't say "etc")
+User - fetch, edit, etc. /me endpoint needed! ✅ **Top priority!**
 
-Inbox - fetch, notif sending... (i know what you did)
+Settings - fetch, edit, etc. **Medium priority for clients**
 
-Admin/mod - grant mod statuses, mod actions on everything, sending to inboxes, etc. (please stoppppp)
+Inbox - fetch, notif sending... that kind of thing. **Low-ish priority, does not need to be finished for beta release.**
 
-ALL should be done before a public beta.
-## HOW TO RUN
-1. run `git clone [repository (mae)link]` and `cd` into the folder
-2. ensure you have deno and node.js installed
+Admin/mod - grant mod statuses, mod actions on everything, sending to inboxes, etc. ***THIS IS HIGH PRIORITY AFTER AT LEAST HOME IS DONE!***
+
+ALL should probably be done before a public beta, one or two things probably don't need to be finished fully
+## Running the server
+1. Clone this repo and `cd` into the folder
+2. ensure you have Deno installed
 3. install required packages with `deno task install`
 4. run `deno task start` to start the server
-5. run `node test.js` and the program will automatically test endpoints and report errors for you
+5. run `deno test.js --allow-net` and the program will automatically test endpoints and report errors for you
