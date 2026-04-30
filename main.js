@@ -9,118 +9,142 @@ import { log } from "./logging.js";
 
 initDB();
 
-Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
+// Some helpers
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type, Authorization",
+};
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function withCors(response) {
+  const headers = new Headers(response.headers);
+  for (const [k, v] of Object.entries(CORS_HEADERS)) {
+    headers.set(k, v);
+  }
+  return new Response(response.body, { status: response.status, headers });
+}
+
+function getToken(req) {
+  return req.headers.get("Authorization")?.split(" ")[1] ?? null;
+}
+
+// Handler
+
+async function handler(req) {
   const url = new URL(req.url);
-  if (url.pathname === "/register" && req.method === "POST") {
+  const { pathname, method } = { pathname: url.pathname, method: req.method };
+
+  if (method === "OPTIONS") {
+    return new Response(null);
+  }
+
+  if (pathname === "/register" && method === "POST") {
     const { username, password } = await req.json();
     const reg = await register(username, password);
-    return Response.json({ reg: reg });
-  } else if (url.pathname === "/login" && req.method === "POST") {
+    return json({ reg });
+  }
+
+  if (pathname === "/login" && method === "POST") {
     const { username, password } = await req.json();
     const user = await login(username, password);
-    console.log("user: ", user);
-    if (!user) {
-      return Response.json({ error: true }, { status: 404 });
-    }
-    return Response.json({ error: false, user: user }, { status: 200 });
-  } else if (url.pathname === "/post" && req.method === "POST") {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return Response.json({ error: true }, { status: 401 });
-    }
-    const postdata = await req.json();
-    const token = authHeader.split(" ")[1];
+    if (!user) return json({ error: true }, 404);
+    return json({ error: false, user });
+  }
+
+  if (pathname === "/post" && method === "POST") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const { userId, content } = await req.json();
     try {
-      const post = await createPost(token, postdata.userId, postdata.content);
-      if (!post) {
-        return Response.json({ error: true }, { status: 400 });
-      }
-      return Response.json({ error: false });
+      const post = await createPost(token, userId, content);
+      if (!post) return json({ error: true }, 400);
+      return json({ error: false });
     } catch (e) {
       log(e, "red");
-      return Response.json({ error: true }, { status: 400 });
+      return json({ error: true }, 400);
     }
-  } else if (url.pathname === "/home" && req.method === "POST") {
-    const pageHeader = req.headers.get("p");
-    let page = 1;
-    if (pageHeader) {
-      page = parseInt(pageHeader);
-    }
+  }
+
+  if (pathname === "/home" && method === "POST") {
+    const page = parseInt(req.headers.get("p") ?? "1");
     try {
-      const returnedPosts = await fetchPosts(page);
-      return Response.json({ error: false, page: page, posts: returnedPosts });
+      const posts = await fetchPosts(page);
+      return json({ error: false, page, posts });
     } catch (e) {
       log(e, "red");
-      return Response.json({ error: true }, { status: 400 });
+      return json({ error: true }, 400);
     }
-  } else if (url.pathname === "/post" && req.method === "PATCH") {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return Response.json({ error: true }, { status: 401 });
-    }
-    const postdata = await req.json();
-    const token = authHeader.split(" ")[1];
+  }
+
+  if (pathname === "/post" && method === "PATCH") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const { postId, userId, content } = await req.json();
     try {
-      const post = await editPost(token, postdata.postId, postdata.userId, postdata.content);
-      if (!post) {
-        return Response.json({ error: true }, { status: 400 });
-      }
-      return Response.json({ error: false });
+      const post = await editPost(token, postId, userId, content);
+      if (!post) return json({ error: true }, 400);
+      return json({ error: false });
     } catch (e) {
       log(e, "red");
-      return Response.json({ error: true }, { status: 400 });
+      return json({ error: true }, 400);
     }
-  } else if (url.pathname === "/post" && req.method === "DELETE") {
-    const authHeader = req.headers.get("Authorization");
-    const token = authHeader.split(" ")[1];
-    const postdata = await req.json();
+  }
+
+  if (pathname === "/post" && method === "DELETE") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const { postId, userId } = await req.json();
     try {
-      const post = await destroyPost(token, postdata.postId, postdata.userId);
-      if (!post) {
-        return Response.json({ error: true }, { status: 400 });
-      }
-      return Response.json({ error: false })
+      const post = await destroyPost(token, postId, userId);
+      if (!post) return json({ error: true }, 400);
+      return json({ error: false });
     } catch (e) {
       log(e, "red");
-      return Response.json({ error: true }, { status: 400 });
+      return json({ error: true }, 400);
     }
-  } else if (url.pathname.startsWith("/user/") && req.method === "GET") {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return Response.json({ error: true }, { status: 401 });
-    }
-    const userId = url.pathname.split("/")[2];
-    const token = authHeader.split(" ")[1];
+  }
+
+  if (pathname.startsWith("/user/") && method === "GET") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const userId = pathname.split("/")[2];
     try {
       const user = await fetchUser(token, userId);
-      if (!user) {
-        return Response.json({ error: true }, { status: 400 });
-      }
-      return Response.json({ error: false, user: user });
+      if (!user) return json({ error: true }, 400);
+      return json({ error: false, user });
     } catch (e) {
       log(e, "red");
-      return Response.json({ error: true }, { status: 400 });
+      return json({ error: true }, 400);
     }
-  } else if (url.pathname === "/user" && req.method === "PATCH") {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return Response.json({ error: true }, { status: 401 });
-    }
-    const userdata = await req.json();
-    const token = authHeader.split(" ")[1];
-    try {
-      const user = await editUser(token, userdata.id, userdata.username, userdata.pfp, userdata.bio);
-      if (!user) {
-        return Response.json({ error: true }, { status: 400 });
-      }
-      return Response.json({ error: false });
-    } catch (e) {
-      log(e, "red");
-      return Response.json({ error: true }, { status: 400 });
-    }
-  } else {
-    return Response.json({ error: true }, { status: 404 });
   }
+
+  if (pathname === "/user" && method === "PATCH") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const { id, username, pfp, bio } = await req.json();
+    try {
+      const user = await editUser(token, id, username, pfp, bio);
+      if (!user) return json({ error: true }, 400);
+      return json({ error: false });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  return json({ error: true }, 404);
+}
+
+Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
+  return withCors(await handler(req));
 });
 
 log("PROTOKOL | Server is running on http://localhost:7000", "magenta");
