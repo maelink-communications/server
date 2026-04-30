@@ -2,7 +2,7 @@
 Work in progress - project PROTOKOL
 ### MAKE SURE YOU HAVE A .env FILE WITH THE JWT_SECRET SET!
 **Otherwise, authentication will NOT work and tokens will NOT be generated.**
-#### Note: JWT_SECRET length must add up to 256 bytes!
+###### Note: JWT_SECRET length must add up to 256 bits (32 bytes)!
 
 ## Registered endpoints:
 POST /register - Register a new user
