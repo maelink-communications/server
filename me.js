@@ -2,14 +2,15 @@ import * as jose from "@panva/jose";
 import { connectDB } from './db.js';
 const db = connectDB();
 export async function fetchUser(token, userId) {
+  if (!userId) return false;
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
   try {
     const { payload } = await jose.jwtVerify(token, secret);
     if (payload.uuid !== userId) {
-      return Response.json({ error: true }, { status: 401 });
+      return false;
     }
     if (payload.exp < Date.now() / 1000) {
-      return Response.json({ error: true }, { status: 401 });
+      return false;
     }
     const username = db.exec(
       `SELECT users.username FROM users WHERE id = ?`,
@@ -27,22 +28,23 @@ export async function fetchUser(token, userId) {
       `SELECT users.username FROM followers JOIN users ON users.id=followers.followerID WHERE followedID = ?`,
       [userId]
     );
-    return Response.json({ success: true, username: username, pfp: pfp, bio: bio, followers: followers });
+    return { username: username, pfp: pfp, bio: bio, followers: followers };
   } catch (e) {
     throw e;
   }
 }
-export async function editUser(token, userId, username, pfp, bio) { // allow changing username?
+export async function editUser(token, userId, username, pfp, bio) {
+  if (!userId) return false;
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
   try {
     const { payload } = await jose.jwtVerify(token, secret);
     if (payload.uuid !== userId) {
-      return Response.json({ error: true }, { status: 401 });
+      return false;
     }
     if (payload.exp < Date.now() / 1000) {
-      return Response.json({ error: true }, { status: 401 });
+      return false;
     }
-    if (username && username.trim().length > 2) { // allow changing username?
+    if (username && username.trim().length > 2) {
       db.exec(
         `UPDATE users SET username = ? WHERE id = ?`,
         [username, userId],
@@ -60,7 +62,7 @@ export async function editUser(token, userId, username, pfp, bio) { // allow cha
         [bio, userId],
       );
     }
-    return Response.json({ error: false });
+    return true;
   } catch (e) {
     throw e;
   }
