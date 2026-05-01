@@ -84,3 +84,28 @@ export async function destroyPost(token, postId, userId) {
     throw e;
   }
 }
+
+export async function postLikeSet(token, postId, userId) {
+  console.log("postLikeSet called with:", { postId, userId });
+  if (!postId || !userId) {
+    console.log("Missing postId or userId, returning false");
+    return false;
+  }
+  const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
+  try {
+    const { payload } = await jose.jwtVerify(token, secret);
+    if (payload.uuid !== userId) {
+      return false;
+    }
+    if (payload.exp < Date.now() / 1000) {
+      return false;
+    }
+    db.exec(
+      `UPDATE posts SET users_liked = json_array_append(users_liked, '$', ?) WHERE id = ? AND user_id != ? AND json_array_length(users_liked) < 1000 AND NOT json_array_contains(users_liked, ?)`,
+      [userId, postId, userId, userId],
+    );
+    return true;
+  } catch (e) {
+    throw e;
+  }
+}

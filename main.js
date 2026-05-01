@@ -2,7 +2,13 @@
 // MAKE SURE YOU HAVE A .env FILE WITH THE JWT_SECRET SET!!!
 // Otherwise, authentication will NOT work and tokens will NOT be generated.
 import { register, login } from "./auth.js";
-import { createPost, editPost, fetchPosts, destroyPost } from "./home.js";
+import {
+  createPost,
+  editPost,
+  fetchPosts,
+  destroyPost,
+  postLikeSet,
+} from "./home.js";
 import { fetchUser, editUser } from "./me.js";
 import { initDB } from "./db.js";
 import { log } from "./logging.js";
@@ -88,11 +94,17 @@ async function handler(req) {
   if (pathname === "/post" && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
-    const { postId, userId, content } = await req.json();
+    const { postId, userId, content, like } = await req.json();
     try {
-      const post = await editPost(token, postId, userId, content);
-      if (!post) return json({ error: true }, 400);
-      return json({ error: false });
+      if (like) {
+        const post = await postLikeSet(token, postId, userId);
+        if (!post) return json({ error: true }, 400);
+        return json({ error: false });
+      } else {
+        const post = await editPost(token, postId, userId, content);
+        if (!post) return json({ error: true }, 400);
+        return json({ error: false });
+      }
     } catch (e) {
       log(e, "red");
       return json({ error: true }, 400);

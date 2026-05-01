@@ -45,7 +45,7 @@ Deno.test("API flow", async (t) => {
       username,
       password,
     });
-    console.log("Data from login request: ", data)
+    console.log("Data from login request: ", data);
 
     assertEquals(res.status, 200);
     assert(data && data.user && data.user.token);
@@ -69,6 +69,16 @@ Deno.test("API flow", async (t) => {
       },
     );
 
+    assertEquals(res.status, 200);
+  });
+
+  await t.step("Like post", async () => {
+    const { res } = await request(
+      "PATCH",
+      "/post",
+      { like: true, postId: 1, userId },
+      { Authorization: `Bearer ${token}` },
+    );
     assertEquals(res.status, 200);
   });
 
@@ -134,12 +144,9 @@ Deno.test("API flow", async (t) => {
   await t.step("Get user data", async () => {
     if (!token) return;
 
-    const { res } = await request(
-      "GET",
-      "/user/" + userId,
-      undefined,
-      { Authorization: `Bearer ${token}` },
-    );
+    const { res } = await request("GET", "/user/" + userId, undefined, {
+      Authorization: `Bearer ${token}`,
+    });
 
     assertEquals(res.status, 200);
   });

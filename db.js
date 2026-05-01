@@ -20,6 +20,7 @@ export function initDB() {
     content TEXT,
     ts INTEGER,
     likes INTEGER DEFAULT 0,
+    users_liked TEXT DEFAULT '[]',
     reply_count INTEGER DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users(uuid) ON DELETE SET NULL
 );

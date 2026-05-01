@@ -6,6 +6,7 @@ import { log } from "./logging.js";
 const db = connectDB();
 log("Auth module loaded", "gray");
 export async function register(username, password) {
+  console.log("jwt_secret: ", Deno.env.get("JWT_SECRET"))
   const hashedPassword = await hash(password);
   try {
     await hash(password) === hashedPassword;
@@ -33,7 +34,7 @@ export async function register(username, password) {
       uuid,
       username,
       hashString,
-      "replace with placeholder image",
+      null,
       null
     ]);
     return { error: false, username: username, token: token, uuid: uuid };
