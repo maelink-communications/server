@@ -101,7 +101,7 @@ export async function postLikeSet(token, postId, userId) {
       return false;
     }
     db.exec(
-      `UPDATE posts SET users_liked = json_array_append(users_liked, '$', ?) WHERE id = ? AND user_id != ? AND json_array_length(users_liked) < 1000 AND NOT json_array_contains(users_liked, ?)`,
+      `UPDATE posts SET users_liked = ?, likes = likes + 1 WHERE id = ? AND user_id != ? AND users_liked NOT LIKE '%' || ? || '%'`,
       [userId, postId, userId, userId],
     );
     return true;
