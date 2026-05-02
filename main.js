@@ -20,7 +20,7 @@ initDB();
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type, Authorization",
+  "Access-Control-Allow-Headers": "content-type, Authorization, p",
 };
 
 function json(data, status = 200) {

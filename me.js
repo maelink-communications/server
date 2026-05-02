@@ -1,5 +1,5 @@
 import * as jose from "@panva/jose";
-import { connectDB } from './db.js';
+import { connectDB } from "./db.js";
 const db = connectDB();
 export async function fetchUser(token, userId) {
   if (!userId) return false;
@@ -12,23 +12,23 @@ export async function fetchUser(token, userId) {
     if (payload.exp < Date.now() / 1000) {
       return false;
     }
-    const username = db.exec(
-      `SELECT users.username FROM users WHERE id = ?`,
-      [userId]
-    );
-    const pfp = db.exec(
-      `SELECT users.pfp FROM users WHERE id = ?`,
-      [userId]
-    );
-    const bio = db.exec(
-      `SELECT users.bio FROM users WHERE id = ?`,
-      [userId]
-    );
-    const followers = db.exec(
-      `SELECT users.username FROM followers JOIN users ON users.id=followers.followerID WHERE followedID = ?`,
-      [userId]
-    );
-    return { username: username, pfp: pfp, bio: bio, followers: followers };
+    const user = db
+      .prepare(
+        `SELECT u.username, u.pfp, u.bio,
+    (SELECT COUNT(*) FROM followers WHERE followedID = u.uuid) as follower_count
+   FROM users u WHERE u.uuid = ?`,
+      )
+      .value(userId);
+
+    if (!user) return false;
+
+    const followers = db
+      .prepare(
+        `SELECT u.username FROM followers f JOIN users u ON u.uuid = f.followerID WHERE f.followedID = ?`,
+      )
+      .all(userId);
+
+    return { username: user[0], pfp: user[1], bio: user[2], followers };
   } catch (e) {
     throw e;
   }
@@ -45,22 +45,13 @@ export async function editUser(token, userId, username, pfp, bio) {
       return false;
     }
     if (username && username.trim().length > 2) {
-      db.exec(
-        `UPDATE users SET username = ? WHERE id = ?`,
-        [username, userId],
-      );
+      db.exec(`UPDATE users SET username = ? WHERE uuid = ?`, username, userId);
     }
     if (pfp && pfp.trim().length > 7) {
-      db.exec(
-        `UPDATE users SET pfp = ? WHERE id = ?`,
-        [pfp, userId],
-      );
+      db.exec(`UPDATE users SET pfp = ? WHERE uuid = ?`, pfp, userId);
     }
     if (bio && bio.trim().length > 0) {
-      db.exec(
-        `UPDATE users SET bio = ? WHERE id = ?`,
-        [bio, userId],
-      );
+      db.exec(`UPDATE users SET bio = ? WHERE uuid = ?`, bio, userId);
     }
     return true;
   } catch (e) {

@@ -27,10 +27,7 @@ export async function createPost(token, userId, content) {
 
 export async function fetchPosts(page) {
   const offset = (page - 1) * 25;
-  const stmt = db.prepare(
-    `SELECT * FROM posts ORDER BY id DESC LIMIT 25 OFFSET ?`,
-    [offset]
-  );
+  const stmt = db.prepare(`SELECT *, CAST(ts AS REAL) as ts FROM posts ORDER BY id DESC LIMIT 25 OFFSET ?`);
   const posts = stmt.all(offset);
   return posts;
 }
