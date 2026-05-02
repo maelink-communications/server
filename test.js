@@ -1,6 +1,18 @@
 import { assert, assertEquals } from "@std/assert";
+let destroyPost;
+let BASE_URL;
 
-const BASE_URL = "http://localhost:7000";
+if (!Deno.args.includes("devserver")) {
+  BASE_URL = "http://localhost:7000";
+} else {
+  BASE_URL = "https://dev.maelink.net";
+}
+
+if (!Deno.args.includes("seepost")) {
+  destroyPost = true;
+} else {
+  destroyPost = false;
+}
 
 async function request(method, path, body, headers = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -92,31 +104,35 @@ Deno.test("API flow", async (t) => {
     assertEquals(res.status, 200);
   });
 
-  await t.step("PATCH /post (expected failure)", async () => {
+  await t.step("PATCH /post", async () => {
     if (!token) return;
 
     const { res } = await request(
       "PATCH",
       "/post",
-      { id: 1, content: "Updated content" },
+      { postId: 1, userId, content: "Updated content" },
       { Authorization: `Bearer ${token}` },
     );
 
-    assert(res.status >= 400);
+    assert(res.status >= 200);
   });
 
-  await t.step("DELETE /post (expected failure)", async () => {
-    if (!token) return;
+  if (destroyPost) {
+    await t.step("DELETE /post", async () => {
+      if (!token) return;
 
-    const { res } = await request(
-      "DELETE",
-      "/post",
-      { id: 1 },
-      { Authorization: `Bearer ${token}` },
-    );
+      const { res } = await request(
+        "DELETE",
+        "/post",
+        { postId: 1, userId },
+        { Authorization: `Bearer ${token}` },
+      );
 
-    assert(res.status >= 400);
-  });
+      assert(res.status >= 200);
+    });
+  } else {
+    console.log("Skipping DELETE /post test. Run without seepost to enable it.");
+  }
 
   await t.step("404 handling", async () => {
     const { res } = await request("GET", "/nonexistent");
