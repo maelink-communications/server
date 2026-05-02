@@ -6,19 +6,23 @@ log("Home module loaded", "gray");
 const db = connectDB();
 export async function createPost(token, userId, content) {
   if (!userId || !content) return false;
+  log(`createPost called with: ${userId}, ${content}`);
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
   try {
     const { payload } = await jose.jwtVerify(token, secret);
+    log("JWT payload:", payload);
     if (payload.uuid !== userId) {
       return false;
     }
     if (payload.exp < Date.now() / 1000) {
       return false;
     }
+    log("Inserting post into database...");
     db.exec(
       `INSERT INTO posts (uuid, user_id, content, ts) VALUES (?, ?, ?, ?)`,
       [crypto.randomUUID(), userId, content, Date.now()],
     );
+    log("Post created successfully");
     return true;
   } catch (e) {
     throw e;
@@ -27,7 +31,9 @@ export async function createPost(token, userId, content) {
 
 export async function fetchPosts(page) {
   const offset = (page - 1) * 25;
-  const stmt = db.prepare(`SELECT *, CAST(ts AS REAL) as ts FROM posts ORDER BY id DESC LIMIT 25 OFFSET ?`);
+  const stmt = db.prepare(
+    `SELECT *, CAST(ts AS REAL) as ts FROM posts ORDER BY id DESC LIMIT 25 OFFSET ?`,
+  );
   const posts = stmt.all(offset);
   return posts;
 }
@@ -72,10 +78,7 @@ export async function destroyPost(token, postId, userId) {
     if (payload.exp < Date.now() / 1000) {
       return false;
     }
-    db.exec(
-      `DELETE FROM posts WHERE id = ? AND user_id = ?`,
-      [postId, userId],
-    );
+    db.exec(`DELETE FROM posts WHERE id = ? AND user_id = ?`, [postId, userId]);
     return true;
   } catch (e) {
     throw e;
@@ -98,7 +101,7 @@ export async function postLikeSet(token, postId, userId) {
       return false;
     }
     db.exec(
-      `UPDATE posts SET users_liked = ?, likes = likes + 1 WHERE id = ? AND user_id != ? AND users_liked NOT LIKE '%' || ? || '%'`,
+      `UPDATE posts SET users_liked = json_insert(users_liked, '$[#]', ?), likes = likes + 1 WHERE id = ? AND user_id != ? AND users_liked NOT LIKE '%' || ? || '%'`,
       [userId, postId, userId, userId],
     );
     return true;

@@ -160,11 +160,12 @@ Deno.test("API flow", async (t) => {
   await t.step("Get user data", async () => {
     if (!token) return;
 
-    const { res } = await request("GET", "/user/" + userId, undefined, {
+    const { res, data } = await request("GET", "/user/" + userId, undefined, {
       Authorization: `Bearer ${token}`,
     });
 
     assertEquals(res.status, 200);
+    console.log("User data:", data);
   });
 
   await t.step("Update user", async () => {
