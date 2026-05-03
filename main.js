@@ -73,14 +73,14 @@ async function handler(req) {
     try {
       const post = await createPost(token, userId, content);
       if (!post) return json({ error: true }, 400);
-      return json({ error: false });
+      return json(post);
     } catch (e) {
       log(e, "red");
       return json({ error: true }, 400);
     }
   }
 
-  if (pathname === "/home" && method === "POST") {
+  if (pathname === "/home" && method === "GET") {
     const page = parseInt(req.headers.get("p") ?? "1");
     try {
       const posts = await fetchPosts(page);

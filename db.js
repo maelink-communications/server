@@ -4,6 +4,8 @@ const db = new Database("prealpha.db");
 import { log } from "./logging.js";
 log("DB module loaded", "gray");
 export function initDB() {
+  log("Initiating DB...", "gray");
+  const startTime = performance.now();
   db.exec(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     uuid TEXT UNIQUE,
@@ -24,6 +26,8 @@ export function initDB() {
     reply_count INTEGER DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users(uuid) ON DELETE SET NULL
 );
+`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_posts_uuid ON posts(uuid)
 `);
   db.exec(`CREATE TABLE IF NOT EXISTS replies (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,6 +56,20 @@ export function initDB() {
   FOREIGN KEY (followedID) REFERENCES users(id)
 );
 `);
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_users_uuid ON users(uuid)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_users_id ON users(uuid)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_followers_flID ON followers(followedID)
+`,
+  );
+  const endTime = performance.now();
+  log(`Done. Took ${((endTime - startTime) / 1000).toFixed(3)}s.`, "gray");
 }
 
 export function connectDB() {

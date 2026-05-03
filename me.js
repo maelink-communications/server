@@ -1,6 +1,8 @@
 import * as jose from "@panva/jose";
 import { connectDB } from "./db.js";
+import { log } from "./logging.js";
 const db = connectDB();
+log("User module loaded", "gray");
 export async function fetchUser(token, userId) {
   if (!userId) return false;
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
@@ -15,8 +17,8 @@ export async function fetchUser(token, userId) {
     const user = db
       .prepare(
         `SELECT u.username, u.pfp, u.bio,
-    (SELECT COUNT(*) FROM followers WHERE followedID = u.uuid) as follower_count
-   FROM users u WHERE u.uuid = ?`,
+         (SELECT COUNT(*) FROM followers WHERE followedID = u.uuid) as follower_count
+         FROM users u WHERE u.uuid = ?`,
       )
       .value(userId);
 

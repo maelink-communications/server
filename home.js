@@ -10,20 +10,17 @@ export async function createPost(token, userId, content) {
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
   try {
     const { payload } = await jose.jwtVerify(token, secret);
-    log("JWT payload:", payload);
     if (payload.uuid !== userId) {
       return false;
     }
     if (payload.exp < Date.now() / 1000) {
       return false;
     }
-    log("Inserting post into database...");
     db.exec(
       `INSERT INTO posts (uuid, user_id, content, ts) VALUES (?, ?, ?, ?)`,
       [crypto.randomUUID(), userId, content, Date.now()],
     );
-    log("Post created successfully");
-    return true;
+    return { error: false, postId: db.lastInsertRowId };
   } catch (e) {
     throw e;
   }
@@ -39,9 +36,11 @@ export async function fetchPosts(page) {
 }
 
 export async function editPost(token, postId, userId, content) {
-  console.log("editPost called with:", { postId, userId, content });
+  log(
+    `editPost called with: { postId: ${postId}, userId: ${userId}, content: ${content} }`,
+  );
   if (!postId || !userId) {
-    console.log("Missing postId or userId, returning false");
+    log("Missing postId or userId, returning false", "red");
     return false;
   }
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
@@ -64,9 +63,9 @@ export async function editPost(token, postId, userId, content) {
 }
 
 export async function destroyPost(token, postId, userId) {
-  console.log("destroyPost called with:", { postId, userId });
+  log(`destroyPost called with: { postId: ${postId}, userId: ${userId} }`);
   if (!postId || !userId) {
-    console.log("Missing postId or userId, returning false");
+    log("Missing postId or userId, returning false", "red");
     return false;
   }
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
@@ -86,9 +85,9 @@ export async function destroyPost(token, postId, userId) {
 }
 
 export async function postLikeSet(token, postId, userId) {
-  console.log("postLikeSet called with:", { postId, userId });
+  log(`postLikeSet called with: { postId: ${postId}, userId: ${userId} }`);
   if (!postId || !userId) {
-    console.log("Missing postId or userId, returning false");
+    log("Missing postId or userId, returning false", "red");
     return false;
   }
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
@@ -100,10 +99,31 @@ export async function postLikeSet(token, postId, userId) {
     if (payload.exp < Date.now() / 1000) {
       return false;
     }
-    db.exec(
-      `UPDATE posts SET users_liked = json_insert(users_liked, '$[#]', ?), likes = likes + 1 WHERE id = ? AND user_id != ? AND users_liked NOT LIKE '%' || ? || '%'`,
-      [userId, postId, userId, userId],
-    );
+    const post = db.prepare(`SELECT users_liked FROM posts WHERE id = ?`, [
+      postId,
+    ]);
+    const liked = post.all(1)[0].users_liked;
+    if (!liked.includes(userId)) {
+      db.exec(
+        `UPDATE posts SET users_liked = json_insert(users_liked, '$[#]', ?), likes = likes + 1 WHERE id = ? AND users_liked NOT LIKE '%' || ? || '%'`,
+        [userId, postId, userId],
+      );
+    } else {
+      const post = db.prepare(`SELECT users_liked FROM posts WHERE id = ?`, [
+        postId,
+      ]);
+      const likedBase = post.all(1)[0].users_liked;
+      const liked = JSON.parse(likedBase);
+      const index = liked.indexOf(userId);
+
+      if (index > -1) {
+        liked.splice(index, 1);
+        db.exec(
+          `UPDATE posts SET users_liked = ?, likes = likes - 1 WHERE id = ?`,
+          [JSON.stringify(liked), postId],
+        );
+      }
+    }
     return true;
   } catch (e) {
     throw e;

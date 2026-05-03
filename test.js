@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 let destroyPost;
 let BASE_URL;
+let unlike;
 
 if (!Deno.args.includes("devserver")) {
   BASE_URL = "http://localhost:7000";
@@ -12,6 +13,12 @@ if (!Deno.args.includes("seepost")) {
   destroyPost = true;
 } else {
   destroyPost = false;
+}
+
+if (Deno.args.includes("unlike")) {
+  unlike = true;
+} else {
+  unlike = false;
 }
 
 async function request(method, path, body, headers = {}) {
@@ -40,6 +47,7 @@ Deno.test("API flow", async (t) => {
   const password = "TestPassword123!";
 
   let token = null;
+  let postId = null;
   let userId = null;
 
   await t.step("Register user", async () => {
@@ -69,7 +77,7 @@ Deno.test("API flow", async (t) => {
   await t.step("Create post", async () => {
     if (!token || !userId) return;
 
-    const { res } = await request(
+    const { res, data } = await request(
       "POST",
       "/post",
       {
@@ -80,27 +88,43 @@ Deno.test("API flow", async (t) => {
         Authorization: `Bearer ${token}`,
       },
     );
+    console.log("Post creation response data: ", data);
 
     assertEquals(res.status, 200);
+    postId = data.postId;
   });
 
   await t.step("Like post", async () => {
-    const { res } = await request(
+    const { res, data } = await request(
+      "PATCH",
+      "/post",
+      { like: true, postId: postId, userId },
+      { Authorization: `Bearer ${token}` },
+    );
+    console.log("Like post response status: ", data);
+    assertEquals(res.status, 200);
+  });
+
+  if (unlike) {
+    await t.step("Unlike post", async () => {
+    const { res, data } = await request(
       "PATCH",
       "/post",
       { like: true, postId: 1, userId },
       { Authorization: `Bearer ${token}` },
     );
+    console.log("Unlike post response status: ", data);
     assertEquals(res.status, 200);
   });
+  }
 
   await t.step("Fetch posts page 1", async () => {
-    const { res } = await request("POST", "/home", undefined, { p: "1" });
+    const { res } = await request("GET", "/home", undefined, { p: "1" });
     assertEquals(res.status, 200);
   });
 
   await t.step("Fetch posts page 2", async () => {
-    const { res } = await request("POST", "/home", undefined, { p: "2" });
+    const { res } = await request("GET", "/home", undefined, { p: "2" });
     assertEquals(res.status, 200);
   });
 
@@ -110,7 +134,7 @@ Deno.test("API flow", async (t) => {
     const { res } = await request(
       "PATCH",
       "/post",
-      { postId: 1, userId, content: "Updated content" },
+      { postId: postId, userId, content: "Updated content" },
       { Authorization: `Bearer ${token}` },
     );
 
@@ -124,7 +148,7 @@ Deno.test("API flow", async (t) => {
       const { res } = await request(
         "DELETE",
         "/post",
-        { postId: 1, userId },
+        { postId: postId, userId },
         { Authorization: `Bearer ${token}` },
       );
 

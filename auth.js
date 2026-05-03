@@ -6,15 +6,17 @@ import { log } from "./logging.js";
 const db = connectDB();
 log("Auth module loaded", "gray");
 export async function register(username, password) {
-  console.log("jwt_secret: ", Deno.env.get("JWT_SECRET"))
   const hashedPassword = await hash(password);
   try {
-    await hash(password) === hashedPassword;
+    (await hash(password)) === hashedPassword;
   } catch (e) {
     log("Error verifying hash: " + e.message, "red");
     false;
   }
-  const hashString = typeof hashedPassword === 'string' ? hashedPassword : new TextDecoder().decode(hashedPassword);
+  const hashString =
+    typeof hashedPassword === "string"
+      ? hashedPassword
+      : new TextDecoder().decode(hashedPassword);
   const uuid = crypto.randomUUID();
   if (username.trim().length < 3) {
     throw new Error("username is too short, must be 3+ characters");
@@ -30,13 +32,10 @@ export async function register(username, password) {
       .setProtectedHeader({ alg })
       .setIssuedAt()
       .sign(secret);
-    db.exec(`INSERT INTO users (uuid, username, password, pfp, bio) VALUES (?, ?, ?, ?, ?)`, [
-      uuid,
-      username,
-      hashString,
-      null,
-      null
-    ]);
+    db.exec(
+      `INSERT INTO users (uuid, username, password, pfp, bio) VALUES (?, ?, ?, ?, ?)`,
+      [uuid, username, hashString, null, null],
+    );
     return { error: false, username: username, token: token, uuid: uuid };
   } catch (e) {
     console.error(e);
@@ -45,16 +44,14 @@ export async function register(username, password) {
 }
 
 export async function login(username, password) {
-  const user = db.prepare(`SELECT * FROM users WHERE username = ?`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_users_urn ON users(username)`);
+  const user = db.prepare(`SELECT password, username, uuid, pfp, bio FROM users WHERE username = ?`);
   const result = user.all(username);
-  console.log("result: ", result);
   if (result.length === 0) return false;
   try {
     const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-    console.log("jwt_secret: ", Deno.env.get("JWT_SECRET"))
     const alg = "HS256";
     const storedHash = result[0].password;
-    console.log("Stored hash: ", storedHash);
     const passwordHash = storedHash;
     const isValid = await verify(passwordHash, password);
     if (!isValid) return false;
@@ -71,7 +68,7 @@ export async function login(username, password) {
       username: result[0].username,
       pfp: result[0].pfp,
       bio: result[0].bio,
-      token: token
+      token: token,
     };
     return userObject;
   } catch (e) {
