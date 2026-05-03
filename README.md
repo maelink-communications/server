@@ -1,6 +1,4 @@
-# maelink server
-
-Work in progress - project PROTOKOL
+<a href="https://ibb.co/h11T3vTV"><img src="https://i.ibb.co/3YYPgHPc/banner-protokol.png" alt="banner-protokol" border="0"></a>
 
 ## MAKE SURE YOU HAVE A .env FILE WITH THE JWT_SECRET SET!
 
