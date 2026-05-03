@@ -1,10 +1,15 @@
 # maelink server
+
 Work in progress - project PROTOKOL
-### MAKE SURE YOU HAVE A .env FILE WITH THE JWT_SECRET SET!
+
+## MAKE SURE YOU HAVE A .env FILE WITH THE JWT_SECRET SET!
+
 **Otherwise, authentication will NOT work and tokens will NOT be generated.**
-###### Note: JWT_SECRET length must add up to 256 bits (32 bytes)!
+
+### Note: JWT_SECRET length must add up to 256 bits (32 bytes)!
 
 ## Registered endpoints:
+
 POST /register - Register a new user
 
 POST /login - Authenticate a user (will give token that expires in 2 hours)
@@ -16,14 +21,22 @@ POST /post - Create a new post (requires Authorization header)
 PATCH /post - Update post (requires Authorization header)
 
 DELETE /post - Delete post (requires Authorization header)
-# - WHAT'S LEFT TO BE DONE! -
+
+GET /inbox - Fetch inbox messages (requires Authorization header, optional "p" header for page number, 1 is default 1st page)
+
+PATCH /inbox - Set inbox messages as read (requires Authorization header, "id" (user UUID) and "message_id" (message integer ID) in body)
+
+## - WHAT'S LEFT TO BE DONE! -
+
 Home - post interactions:
+
 - Liking posts
 - Commenting on posts  
 - Replying to posts(?)<br>
 **Home is the very core of the service and as such is top priority!**
 
 Bubbles - entire implementation:
+
 - Bubble creation, modification and deletion
 - Channel creation, modification and deletion
 - Posting (and everything to do with home posts except with no likes or reposts and such)
@@ -37,7 +50,9 @@ Inbox - fetch, notif sending... that kind of thing. **Low-ish priority, does not
 Admin/mod - grant mod statuses, mod actions on everything, sending to inboxes, etc. ***THIS IS HIGH PRIORITY AFTER AT LEAST HOME IS DONE!***
 
 ALL should probably be done before a public beta, one or two things probably don't need to be finished fully
+
 ## Running the server
+
 1. Clone this repo and `cd` into the folder
 2. ensure you have Deno installed
 3. install required packages with `deno task install`

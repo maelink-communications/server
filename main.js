@@ -15,6 +15,7 @@ import {
   fetchMessages,
   deleteMessage,
   checkNewMessages,
+  setRead,
 } from "./inbox.js";
 import { initDB } from "./db.js";
 import { log } from "./logging.js";
