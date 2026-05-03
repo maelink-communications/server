@@ -1,11 +1,11 @@
 // Database init
 import { Database } from "@db/sqlite";
+log("DB module loaded", "gray");
+log("Initiating DB...", "gray");
+const startTime = performance.now();
 const db = new Database("prealpha.db");
 import { log } from "./logging.js";
-log("DB module loaded", "gray");
 export function initDB() {
-  log("Initiating DB...", "gray");
-  const startTime = performance.now();
   db.exec(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     uuid TEXT UNIQUE,
@@ -69,7 +69,13 @@ export function initDB() {
 `,
   );
   const endTime = performance.now();
-  log(`Done. Took ${((endTime - startTime) / 1000).toFixed(3)}s.`, "gray");
+  log(`Done initializing DB.`, "gray");
+  if (((endTime - startTime) / 1000).toFixed(3) > 1) {
+    log(
+      `!!! | DB initialization took ${((endTime - startTime) / 1000).toFixed(3)}s. If this is not first-time initialization, consider optimizing.`,
+      "yellow",
+    );
+  }
 }
 
 export function connectDB() {

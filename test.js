@@ -119,12 +119,14 @@ Deno.test("API flow", async (t) => {
   }
 
   await t.step("Fetch posts page 1", async () => {
-    const { res } = await request("GET", "/home", undefined, { p: "1" });
+    const { res, data } = await request("GET", "/home", undefined, { p: "1" });
+    console.log(`Fetch posts response data: ${JSON.stringify(data)}`);
     assertEquals(res.status, 200);
   });
 
   await t.step("Fetch posts page 2", async () => {
-    const { res } = await request("GET", "/home", undefined, { p: "2" });
+    const { res, data } = await request("GET", "/home", undefined, { p: "2" });
+    console.log(`Fetch posts [page 2] response data: ${JSON.stringify(data)}`);
     assertEquals(res.status, 200);
   });
 
