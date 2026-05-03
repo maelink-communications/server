@@ -10,6 +10,12 @@ import {
   postLikeSet,
 } from "./home.js";
 import { fetchUser, editUser } from "./me.js";
+import {
+  sendMessage,
+  fetchMessages,
+  deleteMessage,
+  checkNewMessages,
+} from "./inbox.js";
 import { initDB } from "./db.js";
 import { log } from "./logging.js";
 
@@ -147,6 +153,36 @@ async function handler(req) {
       const user = await editUser(token, id, username, pfp, bio);
       if (!user) return json({ error: true }, 400);
       return json({ error: false });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  if (pathname === "/inbox" && method === "GET") {
+    const page = parseInt(req.headers.get("p") ?? "1");
+    const token = getToken(req).toString();
+    log(`Fetch messages called with page: ${page}, token: ${token}`, "blue");
+    if (!token) return json({ error: true }, 401);
+    try {
+      const user = await fetchMessages(token.toString(), page);
+      const hasNew = await checkNewMessages(token);
+      if (!user) return json({ error: true }, 400);
+      return json({ error: false, messages: user, unread: hasNew });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  if (pathname === "/inbox" && method === "PATCH") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const { id, message_id } = await req.json();
+    try {
+      const message = await setRead(message_id, id, token);
+      if (!message) return json({ error: true }, 400);
+      return json({ error: false, messages: message });
     } catch (e) {
       log(e, "red");
       return json({ error: true }, 400);

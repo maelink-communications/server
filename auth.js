@@ -2,6 +2,7 @@
 import { connectDB } from "./db.js";
 import * as jose from "@panva/jose";
 import { hash, verify } from "@felix/argon2";
+import { sendMessage } from "./inbox.js";
 import { log } from "./logging.js";
 const db = connectDB();
 log("Auth module loaded", "gray");
@@ -33,9 +34,14 @@ export async function register(username, password) {
       .setIssuedAt()
       .sign(secret);
     db.exec(
-      `INSERT INTO users (uuid, username, password, pfp, bio) VALUES (?, ?, ?, ?, ?)`,
-      [uuid, username, hashString, null, null],
+      `INSERT INTO users (uuid, username, password, pfp, bio, token) VALUES (?, ?, ?, ?, ?, ?)`,
+      [uuid, username, hashString, null, null, token],
     );
+    if (Deno.env.get("SYSTEM_MESSAGE")) {
+    await sendMessage(username, `${Deno.env.get("SYSTEM_MESSAGE")}`, "System");
+    } else {
+    await sendMessage(username, `Welcome, ${username}.\nThis is a work-in-progress version of the server, so things may be unstable.`, "System");
+    }
     return { error: false, username: username, token: token, uuid: uuid };
   } catch (e) {
     console.error(e);
@@ -45,7 +51,9 @@ export async function register(username, password) {
 
 export async function login(username, password) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_users_urn ON users(username)`);
-  const user = db.prepare(`SELECT password, username, uuid, pfp, bio FROM users WHERE username = ?`);
+  const user = db.prepare(
+    `SELECT password, username, uuid, pfp, bio, token FROM users WHERE username = ?`,
+  );
   const result = user.all(username);
   if (result.length === 0) return false;
   try {
@@ -63,6 +71,7 @@ export async function login(username, password) {
       .setProtectedHeader({ alg })
       .setIssuedAt()
       .sign(secret);
+    db.exec(`UPDATE users SET token = ? WHERE username = ?`, [token, username]);
     const userObject = {
       uuid: result[0].uuid,
       username: result[0].username,

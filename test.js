@@ -130,6 +130,13 @@ Deno.test("API flow", async (t) => {
     assertEquals(res.status, 200);
   });
 
+  await t.step("Fetch inbox messages", async () => {
+    console.log(`Fetching inbox messages with token: ${token}`);
+    const { res, data } = await request("GET", "/inbox", undefined, { Authorization: `Bearer ${token.toString()}` });
+    console.log(`Fetch inbox messages response data: ${JSON.stringify(data)}`);
+    assertEquals(res.status, 200);
+  });
+
   await t.step("PATCH /post", async () => {
     if (!token) return;
 

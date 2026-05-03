@@ -12,7 +12,8 @@ export function initDB() {
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     pfp TEXT, -- url to image
-    bio TEXT
+    bio TEXT,
+    token TEXT
 );
 `);
   db.exec(`CREATE TABLE IF NOT EXISTS posts (
@@ -54,6 +55,16 @@ export function initDB() {
   PRIMARY KEY (followerID, followedID),
   FOREIGN KEY (followerID) REFERENCES users(id),
   FOREIGN KEY (followedID) REFERENCES users(id)
+);
+`);
+db.exec(`CREATE TABLE IF NOT EXISTS inbox (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  sender_id TEXT,
+  content TEXT,
+  ts INTEGER,
+  read INTEGER DEFAULT 0,
+  FOREIGN KEY (user_id) REFERENCES users(uuid) ON DELETE CASCADE
 );
 `);
   db.exec(
