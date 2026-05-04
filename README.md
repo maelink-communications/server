@@ -22,7 +22,7 @@ DELETE /post - Delete post (requires Authorization header)
 
 GET /inbox - Fetch inbox messages (requires Authorization header, optional "p" header for page number, 1 is default 1st page)
 
-PATCH /inbox - Set inbox messages as read (requires Authorization header, "id" (user UUID) and "message_id" (message integer ID) in body)
+PATCH /inbox - Set inbox messages as read (requires Authorization header and "message_id" (message integer ID) in body)
 
 ## - WHAT'S LEFT TO BE DONE! -
 

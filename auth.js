@@ -38,9 +38,17 @@ export async function register(username, password) {
       [uuid, username, hashString, null, null, token],
     );
     if (Deno.env.get("SYSTEM_MESSAGE")) {
-    await sendMessage(username, `${Deno.env.get("SYSTEM_MESSAGE")}`, "System");
+      await sendMessage(
+        username,
+        `${Deno.env.get("SYSTEM_MESSAGE")}`,
+        "System",
+      );
     } else {
-    await sendMessage(username, `Welcome, ${username}.\nThis is a work-in-progress version of the server, so things may be unstable.`, "System");
+      await sendMessage(
+        username,
+        `Welcome, ${username}.\nThis is a work-in-progress version of the server, so things may be unstable.`,
+        "System",
+      );
     }
     return { error: false, username: username, token: token, uuid: uuid };
   } catch (e) {
@@ -62,16 +70,28 @@ export async function login(username, password) {
     const storedHash = result[0].password;
     const passwordHash = storedHash;
     const isValid = await verify(passwordHash, password);
+    const token = result[0].token;
     if (!isValid) return false;
-    const token = await new jose.SignJWT({
-      uuid: result[0].uuid,
-      username: result[0].username,
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 2,
-    })
-      .setProtectedHeader({ alg })
-      .setIssuedAt()
-      .sign(secret);
-    db.exec(`UPDATE users SET token = ? WHERE username = ?`, [token, username]);
+    try {
+      const { payload } = await jose.jwtVerify(token, secret);
+      if (payload.exp < Date.now() / 1000) {
+        const token = await new jose.SignJWT({
+          uuid: result[0].uuid,
+          username: result[0].username,
+          exp: Math.floor(Date.now() / 1000) + 60 * 60 * 2,
+        })
+          .setProtectedHeader({ alg })
+          .setIssuedAt()
+          .sign(secret);
+        db.exec(`UPDATE users SET token = ? WHERE username = ?`, [
+          token,
+          username,
+        ]);
+      }
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
     const userObject = {
       uuid: result[0].uuid,
       username: result[0].username,

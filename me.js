@@ -4,7 +4,7 @@ import { log } from "./logging.js";
 const db = connectDB();
 log("User module loaded", "gray");
 export async function fetchUser(token, userId) {
-  if (!userId) return false;
+  if (!userId || !token) return false;
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
   try {
     const { payload } = await jose.jwtVerify(token, secret);
@@ -35,25 +35,32 @@ export async function fetchUser(token, userId) {
     throw e;
   }
 }
-export async function editUser(token, userId, username, pfp, bio) {
-  if (!userId) return false;
+export async function editUser(token, username, pfp, bio) {
+  if (!token) return false;
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-  try {
-    const { payload } = await jose.jwtVerify(token, secret);
-    if (payload.uuid !== userId) {
-      return false;
-    }
-    if (payload.exp < Date.now() / 1000) {
-      return false;
-    }
+  let id;
+    try {
+      const { payload } = await jose.jwtVerify(token, secret);
+      if (payload.exp < Date.now() / 1000) {
+        return false;
+      }
+      const stmt = db.prepare(`SELECT uuid FROM users WHERE token = ?`);
+      const user = stmt.all(token)[0];
+      if (!user) {
+        return false;
+      }
+      id = user.uuid.toString();
+      if (payload.uuid !== id) {
+        return false;
+      }
     if (username && username.trim().length > 2) {
-      db.exec(`UPDATE users SET username = ? WHERE uuid = ?`, username, userId);
+      db.exec(`UPDATE users SET username = ? WHERE uuid = ?`, username, id);
     }
     if (pfp && pfp.trim().length > 7) {
-      db.exec(`UPDATE users SET pfp = ? WHERE uuid = ?`, pfp, userId);
+      db.exec(`UPDATE users SET pfp = ? WHERE uuid = ?`, pfp, id);
     }
     if (bio && bio.trim().length > 0) {
-      db.exec(`UPDATE users SET bio = ? WHERE uuid = ?`, bio, userId);
+      db.exec(`UPDATE users SET bio = ? WHERE uuid = ?`, bio, id);
     }
     return true;
   } catch (e) {

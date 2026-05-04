@@ -59,26 +59,26 @@ async function handler(req) {
     return new Response(null);
   }
 
-  if (pathname === "/register" || pathname === "//register" && method === "POST") {
+  if ((pathname === "/register" || pathname === "//register") && method === "POST") {
     const { username, password } = await req.json();
     const reg = await register(username, password);
     if (!reg) return json({ error: true }, 400);
     return json({ error: false, user: reg });
   }
 
-  if (pathname === "/login" || pathname === "//login" && method === "POST") {
+  if ((pathname === "/login" || pathname === "//login") && method === "POST") {
     const { username, password } = await req.json();
     const user = await login(username, password);
     if (!user) return json({ error: true }, 401);
     return json({ error: false, user });
   }
 
-  if (pathname === "/post" || pathname === "//post" && method === "POST") {
+  if ((pathname === "/post" || pathname === "//post") && method === "POST") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
-    const { userId, content } = await req.json();
+    const { content } = await req.json();
     try {
-      const post = await createPost(token, userId, content);
+      const post = await createPost(token, content);
       if (!post) return json({ error: true }, 400);
       return json(post);
     } catch (e) {
@@ -87,7 +87,7 @@ async function handler(req) {
     }
   }
 
-  if (pathname === "/home" || pathname === "//home" && method === "GET") {
+  if ((pathname === "/home" || pathname === "//home") && method === "GET") {
     const page = parseInt(req.headers.get("p") ?? "1");
     try {
       const posts = await fetchPosts(page);
@@ -98,17 +98,17 @@ async function handler(req) {
     }
   }
 
-  if (pathname === "/post" || pathname === "//post" && method === "PATCH") {
+  if ((pathname === "/post" || pathname === "//post") && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
-    const { postId, userId, content, like } = await req.json();
+    const { postId, content, like } = await req.json();
     try {
       if (like) {
-        const post = await postLikeSet(token, postId, userId);
+        const post = await postLikeSet(token, postId);
         if (!post) return json({ error: true }, 400);
         return json({ error: false });
       } else {
-        const post = await editPost(token, postId, userId, content);
+        const post = await editPost(token, postId, content);
         if (!post) return json({ error: true }, 400);
         return json({ error: false });
       }
@@ -118,12 +118,12 @@ async function handler(req) {
     }
   }
 
-  if (pathname === "/post" || pathname === "//post" && method === "DELETE") {
+  if ((pathname === "/post" || pathname === "//post") && method === "DELETE") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
-    const { postId, userId } = await req.json();
+    const { postId } = await req.json();
     try {
-      const post = await destroyPost(token, postId, userId);
+      const post = await destroyPost(token, postId);
       if (!post) return json({ error: true }, 400);
       return json({ error: false });
     } catch (e) {
@@ -132,7 +132,7 @@ async function handler(req) {
     }
   }
 
-  if (pathname.startsWith("/user/") || pathname.startsWith("//user/")  && method === "GET") {
+  if ((pathname.startsWith("/user/") || pathname.startsWith("//user/")) && method === "GET") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const userId = pathname.split("/")[2];
@@ -146,12 +146,12 @@ async function handler(req) {
     }
   }
 
-  if (pathname === "/user" || pathname === "//user" && method === "PATCH") {
+  if ((pathname === "/user" || pathname === "//user") && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
-    const { id, username, pfp, bio } = await req.json();
+    const { username, pfp, bio } = await req.json();
     try {
-      const user = await editUser(token, id, username, pfp, bio);
+      const user = await editUser(token, username, pfp, bio);
       if (!user) return json({ error: true }, 400);
       return json({ error: false });
     } catch (e) {
@@ -160,7 +160,7 @@ async function handler(req) {
     }
   }
 
-  if (pathname === "/inbox" || pathname === "//inbox" && method === "GET") {
+  if ((pathname === "/inbox" || pathname === "//inbox") && method === "GET") {
     const page = parseInt(req.headers.get("p") ?? "1");
     const token = getToken(req).toString();
     log(`Fetch messages called with page: ${page}, token: ${token}`, "blue");
@@ -176,12 +176,12 @@ async function handler(req) {
     }
   }
 
-  if (pathname === "/inbox" || pathname === "//inbox" && method === "PATCH") {
+  if ((pathname === "/inbox" || pathname === "//inbox") && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
-    const { id, message_id } = await req.json();
+    const { message_id } = await req.json();
     try {
-      const message = await setRead(message_id, id, token);
+      const message = await setRead(message_id, token);
       if (!message) return json({ error: true }, 400);
       return json({ error: false, messages: message });
     } catch (e) {

@@ -51,14 +51,21 @@ export async function deleteMessage(messageId, userId) {
   return true;
 }
 
-export async function setRead(messageId, userId, token) {
+export async function setRead(messageId, token) {
   const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
+  let id;
   try {
     const { payload } = await jose.jwtVerify(token, secret);
-    if (payload.uuid !== userId) {
+    if (payload.exp < Date.now() / 1000) {
       return false;
     }
-    if (payload.exp < Date.now() / 1000) {
+    const stmt = db.prepare(`SELECT uuid FROM users WHERE token = ?`);
+    const user = stmt.all(token)[0];
+    if (!user) {
+      return false;
+    }
+    id = user.uuid.toString();
+    if (payload.uuid !== id) {
       return false;
     }
   } catch (e) {
@@ -67,7 +74,7 @@ export async function setRead(messageId, userId, token) {
   }
   db.exec(`UPDATE inbox SET read = 1 WHERE id = ? AND user_id = ?`, [
     messageId,
-    userId,
+    id,
   ]);
   return true;
 }
