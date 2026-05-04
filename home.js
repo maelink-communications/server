@@ -16,11 +16,12 @@ export async function createPost(token, userId, content) {
     if (payload.exp < Date.now() / 1000) {
       return false;
     }
+    const ts = Date.now();
     db.exec(
       `INSERT INTO posts (uuid, user_id, content, ts) VALUES (?, ?, ?, ?)`,
-      [crypto.randomUUID(), userId, content, Date.now()],
+      [crypto.randomUUID(), userId, content, ts],
     );
-    return { error: false, postId: db.lastInsertRowId };
+    return { error: false, content: content, postId: db.lastInsertRowId, ts: ts };
   } catch (e) {
     throw e;
   }
