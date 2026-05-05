@@ -71,36 +71,37 @@ export async function login(username, password) {
     const passwordHash = storedHash;
     const isValid = await verify(passwordHash, password);
     const token = result[0].token;
+    let tokenNew;
     if (!isValid) return false;
     try {
       const { payload } = await jose.jwtVerify(token, secret);
       if (payload.exp < Date.now() / 1000) {
-        const token = await new jose.SignJWT({
+        tokenNew = await new jose.SignJWT({
           uuid: result[0].uuid,
           username: result[0].username,
-          exp: Math.floor(Date.now() / 1000) + 60 * 60 * 2,
+          exp: Math.floor(Date.now() / 1000) + 3600 * 2,
         })
           .setProtectedHeader({ alg })
           .setIssuedAt()
           .sign(secret);
         db.exec(`UPDATE users SET token = ? WHERE username = ?`, [
-          token,
+          tokenNew,
           username,
         ]);
       }
     } catch (e) {
       console.error(e);
       if (e.message.includes("JWTExpired")) {
-        const token = await new jose.SignJWT({
+        tokenNew = await new jose.SignJWT({
           uuid: result[0].uuid,
           username: result[0].username,
-          exp: Math.floor(Date.now() / 1000) + 60 * 60 * 2,
+          exp: Math.floor(Date.now() / 1000) + 3600 * 2,
         })
           .setProtectedHeader({ alg })
           .setIssuedAt()
           .sign(secret);
         db.exec(`UPDATE users SET token = ? WHERE username = ?`, [
-          token,
+          tokenNew,
           username,
         ]);
       }
@@ -110,7 +111,7 @@ export async function login(username, password) {
       username: result[0].username,
       pfp: result[0].pfp,
       bio: result[0].bio,
-      token: token,
+      token: tokenNew ? tokenNew : token,
     };
     return userObject;
   } catch (e) {
