@@ -90,7 +90,20 @@ export async function login(username, password) {
       }
     } catch (e) {
       console.error(e);
-      return false;
+      if (e.message.includes("JWTExpired")) {
+        const token = await new jose.SignJWT({
+          uuid: result[0].uuid,
+          username: result[0].username,
+          exp: Math.floor(Date.now() / 1000) + 60 * 60 * 2,
+        })
+          .setProtectedHeader({ alg })
+          .setIssuedAt()
+          .sign(secret);
+        db.exec(`UPDATE users SET token = ? WHERE username = ?`, [
+          token,
+          username,
+        ]);
+      }
     }
     const userObject = {
       uuid: result[0].uuid,
