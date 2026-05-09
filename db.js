@@ -3,7 +3,7 @@ import { Database } from "@db/sqlite";
 log("DB module loaded", "gray");
 log("Initiating DB...", "gray");
 const startTime = performance.now();
-const db = new Database("prealpha.db");
+const db = new Database("main.db");
 import { log } from "./logging.js";
 export function initDB() {
   db.exec(`CREATE TABLE IF NOT EXISTS users (

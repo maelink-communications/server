@@ -4,7 +4,7 @@ let BASE_URL;
 let unlike;
 
 if (!Deno.args.includes("devserver")) {
-  BASE_URL = "http://localhost:7001";
+  BASE_URL = "http://localhost:7000";
 } else {
   BASE_URL = "https://dev.maelink.net";
 }
