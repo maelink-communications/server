@@ -1,19 +1,24 @@
 // User handling
-import { connectDB } from "./db.js";
+import { connectDB, logChange } from "./db.js";
 import * as jose from "@panva/jose";
 import { hash, verify } from "@felix/argon2";
 import { sendMessage } from "./inbox.js";
 import { log } from "./logging.js";
+import { getPrivateKey, verifyToken } from "./keys.js";
+import { SERVER_ID } from "./peer.js";
 const db = connectDB();
 log("Auth module loaded", "gray");
+
+async function signToken(uuid, username) {
+  return new jose.SignJWT({ uuid, username })
+    .setProtectedHeader({ alg: "ES256", kid: SERVER_ID })
+    .setIssuedAt()
+    .setExpirationTime("2h")
+    .sign(getPrivateKey());
+}
+
 export async function register(username, password) {
   const hashedPassword = await hash(password);
-  try {
-    (await hash(password)) === hashedPassword;
-  } catch (e) {
-    log("Error verifying hash: " + e.message, "red");
-    false;
-  }
   const hashString =
     typeof hashedPassword === "string"
       ? hashedPassword
@@ -23,26 +28,14 @@ export async function register(username, password) {
     throw new Error("username is too short, must be 3+ characters");
   }
   try {
-    const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-    const alg = "HS256";
-    const token = await new jose.SignJWT({
-      uuid: uuid,
-      username: username,
-      exp: Math.floor(Date.now() / 1000) + 3600 * 2, // 2 hours
-    })
-      .setProtectedHeader({ alg })
-      .setIssuedAt()
-      .sign(secret);
+    const token = await signToken(uuid, username);
     db.exec(
       `INSERT INTO users (uuid, username, password, pfp, bio, token) VALUES (?, ?, ?, ?, ?, ?)`,
       [uuid, username, hashString, null, null, token],
     );
+    logChange("users", "INSERT", uuid, { uuid, username, password: hashString, pfp: null, bio: null });
     if (Deno.env.get("SYSTEM_MESSAGE")) {
-      await sendMessage(
-        username,
-        `${Deno.env.get("SYSTEM_MESSAGE")}`,
-        "System",
-      );
+      await sendMessage(username, `${Deno.env.get("SYSTEM_MESSAGE")}`, "System");
     } else {
       await sendMessage(
         username,
@@ -50,7 +43,7 @@ export async function register(username, password) {
         "System",
       );
     }
-    return { error: false, username: username, token: token, uuid: uuid };
+    return { error: false, username, token, uuid };
   } catch (e) {
     console.error(e);
     return false;
@@ -59,61 +52,25 @@ export async function register(username, password) {
 
 export async function login(username, password) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_users_urn ON users(username)`);
-  const user = db.prepare(
+  const result = db.prepare(
     `SELECT password, username, uuid, pfp, bio, token FROM users WHERE username = ?`,
-  );
-  const result = user.all(username);
+  ).all(username);
   if (result.length === 0) return false;
   try {
-    const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-    const alg = "HS256";
-    const storedHash = result[0].password;
-    const passwordHash = storedHash;
-    const isValid = await verify(passwordHash, password);
-    const token = result[0].token;
-    let tokenNew;
+    const isValid = await verify(result[0].password, password);
     if (!isValid) return false;
-    try {
-      const { payload } = await jose.jwtVerify(token, secret);
-      if (payload.exp < Date.now() / 1000) {
-        tokenNew = await new jose.SignJWT({
-          uuid: result[0].uuid,
-          username: result[0].username,
-          exp: Math.floor(Date.now() / 1000) + 3600 * 2,
-        })
-          .setProtectedHeader({ alg })
-          .setIssuedAt()
-          .sign(secret);
-        db.exec(`UPDATE users SET token = ? WHERE username = ?`, [
-          tokenNew,
-          username,
-        ]);
-      }
-    } catch (e) {
-      console.error(e);
-      if (e.message.includes("JWTExpired")) {
-        tokenNew = await new jose.SignJWT({
-          uuid: result[0].uuid,
-          username: result[0].username,
-          exp: Math.floor(Date.now() / 1000) + 3600 * 2,
-        })
-          .setProtectedHeader({ alg })
-          .setIssuedAt()
-          .sign(secret);
-        db.exec(`UPDATE users SET token = ? WHERE username = ?`, [
-          tokenNew,
-          username,
-        ]);
-      }
-    }
-    const userObject = {
+
+    // Always issue a fresh token on login (node-local, signed with this node's key)
+    const tokenNew = await signToken(result[0].uuid, result[0].username);
+    db.exec(`UPDATE users SET token = ? WHERE username = ?`, [tokenNew, username]);
+
+    return {
       uuid: result[0].uuid,
       username: result[0].username,
       pfp: result[0].pfp,
       bio: result[0].bio,
-      token: tokenNew ? tokenNew : token,
+      token: tokenNew,
     };
-    return userObject;
   } catch (e) {
     console.error(e);
     return false;

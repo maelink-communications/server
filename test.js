@@ -4,7 +4,7 @@ let BASE_URL;
 let unlike;
 
 if (!Deno.args.includes("devserver")) {
-  BASE_URL = "http://localhost:7000";
+  BASE_URL = "http://localhost:7001";
 } else {
   BASE_URL = "https://dev.maelink.net";
 }
@@ -109,7 +109,7 @@ Deno.test("API flow", async (t) => {
     const { res, data } = await request(
       "PATCH",
       "/post",
-      { like: true, postId: 1 },
+      { like: true, postId: postId },
       { Authorization: `Bearer ${token}` },
     );
     console.log("Unlike post response status: ", data);

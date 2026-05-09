@@ -19,15 +19,22 @@ import {
 } from "./inbox.js";
 import { initDB } from "./db.js";
 import { log } from "./logging.js";
+import { startRegistryClient } from "./peer.js";
+import { startSyncEngine, handleSyncChanges, handleSyncApply } from "./sync.js";
+import { initKeys, getPublicJwk } from "./keys.js";
+import { SERVER_ID } from "./peer.js";
 
 initDB();
+await initKeys();
+startRegistryClient();
+startSyncEngine();
 
 // Some helpers
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type, Authorization, p",
+  "Access-Control-Allow-Headers": "content-type, Authorization, p, x-server-id",
 };
 
 function json(data, status = 200) {
@@ -59,7 +66,10 @@ async function handler(req) {
     return new Response(null);
   }
 
-  if ((pathname === "/register" || pathname === "//register") && method === "POST") {
+  if (
+    (pathname === "/register" || pathname === "//register") &&
+    method === "POST"
+  ) {
     const { username, password } = await req.json();
     const reg = await register(username, password);
     if (!reg) return json({ error: true }, 400);
@@ -132,7 +142,10 @@ async function handler(req) {
     }
   }
 
-  if ((pathname.startsWith("/user/") || pathname.startsWith("//user/")) && method === "GET") {
+  if (
+    (pathname.startsWith("/user/") || pathname.startsWith("//user/")) &&
+    method === "GET"
+  ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const userId = pathname.split("/")[2];
@@ -188,6 +201,18 @@ async function handler(req) {
       log(e, "red");
       return json({ error: true }, 400);
     }
+  }
+
+  if (pathname === "/sync/pubkey" && method === "GET") {
+    return json({ ...getPublicJwk(), kid: SERVER_ID });
+  }
+
+  if (pathname === "/sync/changes" && method === "POST") {
+    return handleSyncChanges(req);
+  }
+
+  if (pathname === "/sync/apply" && method === "POST") {
+    return handleSyncApply(req);
   }
 
   return json({ error: true }, 404);

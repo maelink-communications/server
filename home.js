@@ -1,35 +1,30 @@
 // Home service logic
-import * as jose from "@panva/jose";
-import { connectDB } from "./db.js";
+import { connectDB, logChange } from "./db.js";
 import { log } from "./logging.js";
+import { verifyToken } from "./keys.js";
 log("Home module loaded", "gray");
 const db = connectDB();
+
+async function resolveUser(token) {
+  const payload = await verifyToken(token);
+  const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
+  if (!user) throw new Error("User not found");
+  return payload.uuid;
+}
+
 export async function createPost(token, content) {
   if (!token || !content) return false;
   log(`createPost called with: ${token}, ${content}`);
-  const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-  let id;
-    try {
-      const { payload } = await jose.jwtVerify(token, secret);
-      if (payload.exp < Date.now() / 1000) {
-        return false;
-      }
-      const stmt = db.prepare(`SELECT uuid FROM users WHERE token = ?`);
-      const user = stmt.all(token)[0];
-      if (!user) {
-        return false;
-      }
-      id = user.uuid.toString();
-      if (payload.uuid !== id) {
-        return false;
-      }
-
+  try {
+    const id = await resolveUser(token);
     const ts = Date.now();
-    db.exec(
-      `INSERT INTO posts (uuid, user_id, content, ts) VALUES (?, ?, ?, ?)`,
-      [crypto.randomUUID(), id, content, ts],
-    );
-    return { error: false, content: content, postId: db.lastInsertRowId, ts: ts };
+    const postUuid = crypto.randomUUID();
+    db.prepare(
+      `INSERT INTO posts (uuid, user_id, content, ts) VALUES (?, ?, ?, ?)`
+    ).run(postUuid, id, content, ts);
+    const postId = db.prepare(`SELECT id FROM posts WHERE uuid = ?`).value(postUuid)?.[0];
+    logChange('posts', 'INSERT', postUuid, { user_id: id, content, ts });
+    return { error: false, content: content, postId, postUuid, ts: ts };
   } catch (e) {
     throw e;
   }
@@ -45,33 +40,19 @@ export async function fetchPosts(page) {
 }
 
 export async function editPost(token, postId, content) {
-  log(
-    `editPost called with: { postId: ${postId}, token: ${token}, content: ${content} }`,
-  );
+  log(`editPost called with: { postId: ${postId}, token: ${token}, content: ${content} }`);
   if (!postId || !token) {
     log("Missing postId or token, returning false", "red");
     return false;
   }
-  const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-  let id;
-    try {
-      const { payload } = await jose.jwtVerify(token, secret);
-      if (payload.exp < Date.now() / 1000) {
-        return false;
-      }
-      const stmt = db.prepare(`SELECT uuid FROM users WHERE token = ?`);
-      const user = stmt.all(token)[0];
-      if (!user) {
-        return false;
-      }
-      id = user.uuid.toString();
-      if (payload.uuid !== id) {
-        return false;
-      }
+  try {
+    const id = await resolveUser(token);
     db.exec(
       `UPDATE posts SET content = ?, ts = ? WHERE id = ? AND user_id = ?`,
       [content, Date.now(), postId, id],
     );
+    // Log the post edit for replication
+    logChange('posts', 'UPDATE', postId, { field: 'content', content, ts: Date.now() });
     return true;
   } catch (e) {
     throw e;
@@ -84,23 +65,11 @@ export async function destroyPost(token, postId) {
     log("Missing postId or token, returning false", "red");
     return false;
   }
-  const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-  let id;
-    try {
-      const { payload } = await jose.jwtVerify(token, secret);
-      if (payload.exp < Date.now() / 1000) {
-        return false;
-      }
-      const stmt = db.prepare(`SELECT uuid FROM users WHERE token = ?`);
-      const user = stmt.all(token)[0];
-      if (!user) {
-        return false;
-      }
-      id = user.uuid.toString();
-      if (payload.uuid !== id) {
-        return false;
-      }
+  try {
+    const id = await resolveUser(token);
     db.exec(`DELETE FROM posts WHERE id = ? AND user_id = ?`, [postId, id]);
+    // Log the post deletion for replication
+    logChange('posts', 'DELETE', postId, { user_id: id });
     return true;
   } catch (e) {
     throw e;
@@ -113,48 +82,27 @@ export async function postLikeSet(token, postId) {
     log("Missing postId or token, returning false", "red");
     return false;
   }
-  const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-  let id;
-    try {
-      const { payload } = await jose.jwtVerify(token, secret);
-      if (payload.exp < Date.now() / 1000) {
-        console.log("Token expired");
-        return false;
-      }
-      const stmt = db.prepare(`SELECT uuid FROM users WHERE token = ?`);
-      const user = stmt.all(token)[0];
-      console.log("User from token verification: ", user);
-      if (!user) {
-        return false;
-      }
-      id = user.uuid.toString();
-      console.log("User ID from token verification: ", id);
-      if (payload.uuid !== id) {
-        return false;
-      }
-    const post = db.prepare(`SELECT users_liked FROM posts WHERE id = ?`, [
-      postId,
-    ]);
-    const liked = post.all(1)[0].users_liked;
+  try {
+    const id = await resolveUser(token);
+    const post = db.prepare(`SELECT uuid, users_liked FROM posts WHERE id = ?`).value(postId);
+    if (!post) {
+      log(`Post ${postId} not found`, "red");
+      return false;
+    }
+    const postUuid = post[0];
+    const liked = JSON.parse(post[1] || '[]');
     if (!liked.includes(id)) {
-      db.exec(
-        `UPDATE posts SET users_liked = json_insert(users_liked, '$[#]', ?), likes = likes + 1 WHERE id = ? AND users_liked NOT LIKE '%' || ? || '%'`,
-        [id, postId, id],
-      );
+      db.prepare(
+        `UPDATE posts SET users_liked = json_insert(users_liked, '$[#]', ?), likes = likes + 1 WHERE id = ? AND users_liked NOT LIKE '%' || ? || '%'`
+      ).run(id, postId, id);
+      logChange('posts', 'UPDATE', postUuid, { action: 'like', user_id: id });
     } else {
-      const post = db.prepare(`SELECT users_liked FROM posts WHERE id = ?`, [
-        postId,
-      ]);
-      const likedBase = post.all(1)[0].users_liked;
-      const liked = JSON.parse(likedBase);
       const index = liked.indexOf(id);
-
       if (index > -1) {
         liked.splice(index, 1);
-        db.exec(
-          `UPDATE posts SET users_liked = ?, likes = likes - 1 WHERE id = ?`,
-          [JSON.stringify(liked), postId],
-        );
+        db.prepare(`UPDATE posts SET users_liked = ?, likes = likes - 1 WHERE id = ?`)
+          .run(JSON.stringify(liked), postId);
+        logChange('posts', 'UPDATE', postUuid, { action: 'unlike', user_id: id });
       }
     }
     return true;

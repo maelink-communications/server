@@ -1,40 +1,34 @@
-import { connectDB } from "./db.js";
+import { connectDB, logChange } from "./db.js";
 import { log } from "./logging.js";
-import * as jose from "@panva/jose";
+import { verifyToken } from "./keys.js";
 log("Inbox module loaded", "gray");
 const db = connectDB();
+
+async function resolveUser(token) {
+  const payload = await verifyToken(token);
+  const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
+  if (!user) throw new Error("User not found");
+  return payload.uuid;
+}
 
 export async function sendMessage(recipient, content, senderDisplay) {
   const stmt = db.prepare(`SELECT * FROM users WHERE username = ?`);
   const recip = stmt.all(recipient)[0];
   if (!recip) return { error: "Recipient not found" };
+  const messageId = crypto.randomUUID();
   db.exec(
     `INSERT INTO inbox (id, user_id, sender_id, content, ts, read) VALUES (?, ?, ?, ?, ?, 0)`,
-    [crypto.randomUUID(), recip.uuid, senderDisplay, content, Date.now()],
+    [messageId, recip.uuid, senderDisplay, content, Date.now()],
   );
+  logChange('inbox', 'INSERT', messageId, { user_id: recip.uuid, sender_id: senderDisplay, content, ts: Date.now() });
   return true;
 }
 
 export async function fetchMessages(token, page) {
-  const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-
   let id;
   try {
-    const { payload } = await jose.jwtVerify(token, secret);
-    if (payload.exp < Date.now() / 1000) {
-      return false;
-    }
-    const stmt = db.prepare(`SELECT uuid FROM users WHERE token = ?`);
-    const user = stmt.all(token)[0];
-    if (!user) {
-      return false;
-    }
-    id = user.uuid.toString();
-    if (payload.uuid !== id) {
-      return false;
-    }
-  } catch (e) {
-    console.log(e);
+    id = await resolveUser(token);
+  } catch {
     return false;
   }
   const offset = (page - 1) * 25;
@@ -48,57 +42,30 @@ export async function deleteMessage(messageId, userId) {
     messageId,
     userId,
   ]);
+  logChange('inbox', 'DELETE', messageId, { user_id: userId });
   return true;
 }
 
 export async function setRead(messageId, token) {
-  const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
   let id;
   try {
-    const { payload } = await jose.jwtVerify(token, secret);
-    if (payload.exp < Date.now() / 1000) {
-      return false;
-    }
-    const stmt = db.prepare(`SELECT uuid FROM users WHERE token = ?`);
-    const user = stmt.all(token)[0];
-    if (!user) {
-      return false;
-    }
-    id = user.uuid.toString();
-    if (payload.uuid !== id) {
-      return false;
-    }
-  } catch (e) {
-    log("Error verifying token: " + e, "red");
+    id = await resolveUser(token);
+  } catch {
     return false;
   }
   db.exec(`UPDATE inbox SET read = 1 WHERE id = ? AND user_id = ?`, [
     messageId,
     id,
   ]);
+  logChange('inbox', 'UPDATE', messageId, { field: 'read', newValue: 1 });
   return true;
 }
 
 export async function checkNewMessages(token) {
-  const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
-
   let id;
   try {
-    const { payload } = await jose.jwtVerify(token, secret);
-    if (payload.exp < Date.now() / 1000) {
-      return false;
-    }
-    const stmt = db.prepare(`SELECT uuid FROM users WHERE token = ?`);
-    const user = stmt.all(token)[0];
-    if (!user) {
-      return false;
-    }
-    id = user.uuid.toString();
-    if (payload.uuid !== id) {
-      return false;
-    }
-  } catch (e) {
-    console.log(e);
+    id = await resolveUser(token);
+  } catch {
     return false;
   }
   const stmt = db.prepare(
