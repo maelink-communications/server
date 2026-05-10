@@ -196,7 +196,10 @@ function applyChange(change) {
 
 async function syncWithPeer(peer) {
   const since = getPeerSince(peer.id);
-  const peerUrl = `http://${peer.address}:${peer.port}`;
+  // Always use HTTP for peer sync (not HTTPS)
+  // peer.address should be hostname/IP only, peer.port is the port
+  const peerUrl = `http://${peer.address.replace(/^https?:\/\//, "")}:${peer.port}`;
+  log(`[sync] -> ${peer.id} | URL: ${peerUrl} | since=${since}`, "cyan");
   syncLog(`[sync] -> ${peer.id} | since=${since}`);
 
   try {
@@ -279,29 +282,47 @@ export function startSyncEngine() {
 }
 
 export async function handleSyncChanges(req) {
-  const { since = 0, requesterId } = await req.json();
-  const all = requesterId ? getChangesForPeer(requesterId, since) : getUnsyncedChanges(since);
-  syncLog(`[handleSyncChanges] requester=${requesterId} since=${since} total=${all.length}`);
-  const changes = requesterId
-    ? all.filter((c) => c.origin_server_id !== requesterId)
-    : all;
-  if (VERBOSE_SYNC && all.length > 0) {
-    for (const c of all) {
-      const kept = !requesterId || c.origin_server_id !== requesterId;
-      syncLog(`[handleSyncChanges]   ${kept ? "SEND" : "SKIP"} ${c.table_name}/${c.operation} record=${c.record_id} ts=${c.timestamp} origin=${c.origin_server_id}`);
+  try {
+    const { since = 0, requesterId } = await req.json();
+    const all = requesterId ? getChangesForPeer(requesterId, since) : getUnsyncedChanges(since);
+    syncLog(`[handleSyncChanges] requester=${requesterId} since=${since} total=${all.length}`);
+    const changes = requesterId
+      ? all.filter((c) => c.origin_server_id !== requesterId)
+      : all;
+    if (VERBOSE_SYNC && all.length > 0) {
+      for (const c of all) {
+        const kept = !requesterId || c.origin_server_id !== requesterId;
+        syncLog(`[handleSyncChanges]   ${kept ? "SEND" : "SKIP"} ${c.table_name}/${c.operation} record=${c.record_id} ts=${c.timestamp} origin=${c.origin_server_id}`);
+      }
     }
+    return new Response(JSON.stringify({ changes }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    log(`[handleSyncChanges] error: ${e.message}`, "red");
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
-  return new Response(JSON.stringify({ changes }), {
-    headers: { "Content-Type": "application/json" },
-  });
 }
 
 export async function handleSyncApply(req) {
-  const { changes = [] } = await req.json();
-  for (const change of changes) {
-    if (change.origin_server_id !== SERVER_ID) applyChange(change);
+  try {
+    const { changes = [] } = await req.json();
+    for (const change of changes) {
+      if (change.origin_server_id !== SERVER_ID) applyChange(change);
+    }
+    return new Response(JSON.stringify({ ok: true, applied: changes.length }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    log(`[handleSyncApply] error: ${e.message}`, "red");
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
-  return new Response(JSON.stringify({ ok: true, applied: changes.length }), {
-    headers: { "Content-Type": "application/json" },
-  });
 }

@@ -17,6 +17,18 @@ export const SERVER_ID = Deno.env.get("SERVER_ID") || crypto.randomUUID();
 export const SERVER_ADDRESS = Deno.env.get("SERVER_ADDRESS") || "localhost";
 export const SERVER_PORT = parseInt(Deno.env.get("PORT") || "7000");
 
+function isIPAddress(address) {
+  const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+  if (ipv4Pattern.test(address)) {
+    const parts = address.split('.');
+    return parts.every(part => parseInt(part) <= 255);
+  }
+  if (address.includes(':')) {
+    return true;
+  }
+  return false;
+}
+
 globalThis.SERVER_ID = SERVER_ID;
 
 let peers = db.prepare(`SELECT id, address, port FROM _known_peers`).all();
@@ -27,7 +39,10 @@ export function getPeers() {
 
 async function fetchAndCachePeerKey(peer) {
   try {
-    const res = await fetch(`http://${peer.address}:${peer.port}/sync/pubkey`);
+    // Always use HTTP for peer communication (not HTTPS)
+    // peer.address should be hostname/IP only, peer.port is the port
+    const url = `http://${peer.address.replace(/^https?:\/\//, "")}:${peer.port}`;
+    const res = await fetch(`${url}/sync/pubkey`);
     if (!res.ok) return;
     const { kid, ...jwk } = await res.json();
     const key = await jose.importJWK(jwk, "ES256");
@@ -43,16 +58,23 @@ async function registryPost(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!res.ok) {
+    throw new Error(`Registry error: ${res.status} ${res.statusText}`);
+  }
   return res.json();
 }
 
 export async function registerWithRegistry() {
   try {
-    await registryPost("/register", {
+    const body = {
       id: SERVER_ID,
       address: SERVER_ADDRESS,
-      port: SERVER_PORT,
-    });
+    };
+    // Send port if the address is an IP or localhost
+    if (isIPAddress(SERVER_ADDRESS) || SERVER_ADDRESS === "localhost") {
+      body.port = SERVER_PORT;
+    }
+    await registryPost("/register", body);
     log(`Registered with registry as ${SERVER_ID}`, "green");
   } catch (e) {
     log(`Registry registration failed: ${e.message}`, "yellow");
@@ -65,6 +87,7 @@ async function refreshPeers() {
     const data = await res.json();
     const newPeers = (data.peers || []).filter((p) => p.id !== SERVER_ID);
     for (const peer of newPeers) {
+      peer.address = peer.address.replace(/^https?:\/\//, "");
       const isNew = !peers.find((p) => p.id === peer.id);
       db.exec(
         `INSERT OR REPLACE INTO _known_peers (id, address, port) VALUES (?, ?, ?)`,

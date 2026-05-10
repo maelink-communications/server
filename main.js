@@ -19,7 +19,7 @@ import {
 } from "./inbox.js";
 import { initDB } from "./db.js";
 import { log } from "./logging.js";
-import { startRegistryClient } from "./peer.js";
+import { startRegistryClient, SERVER_PORT } from "./peer.js";
 import { startSyncEngine, handleSyncChanges, handleSyncApply } from "./sync.js";
 import { initKeys, getPublicJwk } from "./keys.js";
 import { SERVER_ID } from "./peer.js";
@@ -218,7 +218,7 @@ async function handler(req) {
   return json({ error: true }, 404);
 }
 
-Deno.serve({ port: 7000, onListen: () => {} }, async (req) => {
+Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req) => {
   return withCors(await handler(req));
 });
 
