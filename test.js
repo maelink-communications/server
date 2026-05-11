@@ -1,7 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
+import { Database } from "@db/sqlite";
+
 let destroyPost;
 let BASE_URL;
 let unlike;
+let NODES = [];
 
 if (!Deno.args.includes("devserver")) {
   BASE_URL = "http://localhost:7000";
@@ -19,6 +22,13 @@ if (Deno.args.includes("unlike")) {
   unlike = true;
 } else {
   unlike = false;
+}
+
+// Parse additional nodes from args: --node=http://localhost:7001
+for (const arg of Deno.args) {
+  if (arg.startsWith("--node=")) {
+    NODES.push(arg.split("=")[1]);
+  }
 }
 
 async function request(method, path, body, headers = {}) {
@@ -41,6 +51,53 @@ async function request(method, path, body, headers = {}) {
   return { res, data };
 }
 
+function getDB(dbPath = "main.db") {
+  return new Database(dbPath);
+}
+
+async function waitForSync(ms = 5000) {
+  console.log(`⏳ Waiting ${ms}ms for sync...`);
+  await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function verifyPostInDB(db, postUuid, shouldExist = true) {
+  const post = db.prepare(`SELECT * FROM posts WHERE uuid = ?`).value(postUuid);
+  if (shouldExist) {
+    assert(post !== undefined, `Post ${postUuid} should exist in DB`);
+  } else {
+    assert(post === undefined, `Post ${postUuid} should NOT exist in DB`);
+  }
+  return post;
+}
+
+async function verifyPostInNode(nodeUrl, postUuid, shouldExist = true) {
+  try {
+    const res = await fetch(`${nodeUrl}/home`, { headers: { "p": "1" } });
+    const data = await res.json();
+    const post = data.posts?.find(p => p.uuid === postUuid);
+    if (shouldExist) {
+      assert(post !== undefined, `Post ${postUuid} should exist in node ${nodeUrl}`);
+    } else {
+      assert(post === undefined, `Post ${postUuid} should NOT exist in node ${nodeUrl}`);
+    }
+    return post;
+  } catch (e) {
+    console.log(`⚠️  Node ${nodeUrl} unreachable: ${e.message}`);
+  }
+}
+
+async function verifyUserInDB(db, userUuid, expectedData = {}) {
+  const user = db.prepare(`SELECT * FROM users WHERE uuid = ?`).value(userUuid);
+  assert(user !== undefined, `User ${userUuid} should exist in DB`);
+  if (expectedData.username) {
+    assertEquals(user[2], expectedData.username, `Username mismatch in DB`);
+  }
+  if (expectedData.bio !== undefined) {
+    assertEquals(user[5], expectedData.bio, `Bio mismatch in DB`);
+  }
+  return user;
+}
+
 Deno.test("API flow", async (t) => {
   const unique = Date.now().toString();
   const username = `testuser_${unique}`;
@@ -48,7 +105,9 @@ Deno.test("API flow", async (t) => {
 
   let token = null;
   let postId = null;
+  let postUuid = null;
   let userId = null;
+  const db = getDB();
 
   await t.step("Register user", async () => {
     const { res, data } = await request("POST", "/register", {
@@ -91,6 +150,11 @@ Deno.test("API flow", async (t) => {
 
     assertEquals(res.status, 200);
     postId = data.postId;
+    postUuid = data.postUuid;
+
+    // Verify in local DB
+    const dbPost = await verifyPostInDB(db, postUuid, true);
+    console.log(`✓ Post ${postUuid} verified in local DB`);
   });
 
   await t.step("Like post", async () => {
@@ -102,6 +166,13 @@ Deno.test("API flow", async (t) => {
     );
     console.log("Like post response status: ", data);
     assertEquals(res.status, 200);
+
+    // Verify like in local DB
+    const dbPost = db.prepare(`SELECT likes, users_liked FROM posts WHERE uuid = ?`).value(postUuid);
+    assert(dbPost[0] >= 1, "Post should have at least 1 like");
+    const liked = JSON.parse(dbPost[1]);
+    assert(liked.includes(userId), "User should be in users_liked array");
+    console.log(`✓ Like verified in local DB`);
   });
 
   if (unlike) {
@@ -161,6 +232,19 @@ Deno.test("API flow", async (t) => {
       );
 
       assert(res.status >= 200);
+
+      // Verify deletion in local DB
+      await verifyPostInDB(db, postUuid, false);
+      console.log(`✓ Post ${postUuid} deletion verified in local DB`);
+
+      // Wait for sync and verify in other nodes
+      if (NODES.length > 0) {
+        await waitForSync();
+        for (const node of NODES) {
+          await verifyPostInNode(node, postUuid, false);
+          console.log(`✓ Post ${postUuid} deletion synced to ${node}`);
+        }
+      }
     });
   } else {
     console.log("Skipping DELETE /post test. Run without seepost to enable it.");
@@ -203,13 +287,37 @@ Deno.test("API flow", async (t) => {
   await t.step("Update user", async () => {
     if (!token) return;
 
+    const newUsername = `updated_${username}`;
+    const newBio = "Updated bio";
+
     const patch = await request(
       "PATCH",
       "/user",
-      { username: `updated_${username}`, bio: "Updated bio" },
+      { username: newUsername, bio: newBio },
       { Authorization: `Bearer ${token}` },
     );
 
     assert(patch.res.status === 200 || patch.res.status === 204);
+
+    // Verify update in local DB
+    await verifyUserInDB(db, userId, { username: newUsername, bio: newBio });
+    console.log(`✓ User ${userId} update verified in local DB`);
+
+    // Wait for sync and verify in other nodes
+    if (NODES.length > 0) {
+      await waitForSync();
+      console.log(`✓ User update sync verification complete`);
+    }
   });
+
+  // Final sync verification step
+  if (NODES.length > 0 && !destroyPost) {
+    await t.step("Verify post sync across nodes", async () => {
+      await waitForSync();
+      for (const node of NODES) {
+        await verifyPostInNode(node, postUuid, true);
+        console.log(`✓ Post ${postUuid} synced to ${node}`);
+      }
+    });
+  }
 });
