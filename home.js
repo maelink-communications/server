@@ -47,12 +47,14 @@ export async function editPost(token, postId, content) {
   }
   try {
     const id = await resolveUser(token);
+    const postUuid = db.prepare(`SELECT uuid FROM posts WHERE id = ?`).value(postId)?.[0];
+    if (!postUuid) return false;
     db.exec(
       `UPDATE posts SET content = ?, ts = ? WHERE id = ? AND user_id = ?`,
       [content, Date.now(), postId, id],
     );
     // Log the post edit for replication
-    logChange('posts', 'UPDATE', postId, { field: 'content', content, ts: Date.now() });
+    logChange('posts', 'UPDATE', postUuid, { field: 'content', content, ts: Date.now() });
     return true;
   } catch (e) {
     throw e;
@@ -67,9 +69,11 @@ export async function destroyPost(token, postId) {
   }
   try {
     const id = await resolveUser(token);
+    const postUuid = db.prepare(`SELECT uuid FROM posts WHERE id = ?`).value(postId)?.[0];
+    if (!postUuid) return false;
     db.exec(`DELETE FROM posts WHERE id = ? AND user_id = ?`, [postId, id]);
     // Log the post deletion for replication
-    logChange('posts', 'DELETE', postId, { user_id: id });
+    logChange('posts', 'DELETE', postUuid, { user_id: id });
     return true;
   } catch (e) {
     throw e;
