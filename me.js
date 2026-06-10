@@ -1,4 +1,3 @@
-import * as jose from "@panva/jose";
 import { connectDB, logChange } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";

@@ -1,1 +1,24 @@
-// TODO: guilds here! this is a placeholder for now because guilds work is starting next commit
+// Guilds service
+import { connectDB, logChange } from "./db.js";
+import { log } from "./logging.js";
+import { verifyToken } from "./keys.js";
+const db = connectDB();
+log("Guilds module loaded", "gray");
+export async function createGuild(token, name, description) {
+  if (!token) return false;
+  let id;
+  try {
+    const payload = await verifyToken(token);
+    const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
+    if (!user) return false;
+    id = crypto.randomUUID();
+    db.exec(
+      `INSERT INTO guilds (uuid, name, description, ownerID) VALUES (?, ?, ?, ?)`,
+      [id, name, description, payload.uuid],
+    );
+    logChange("guilds", "INSERT", id, { uuid, name, description, ownerID: payload.uuid });
+    return { id, name, description };
+  } catch (e) {
+    throw e;
+  }
+}

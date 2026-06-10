@@ -24,17 +24,22 @@ db.exec(`CREATE TABLE IF NOT EXISTS _peer_sync_state (
 
 function getPeerSince(peerId) {
   const row = db.prepare(`SELECT last_ts FROM _peer_sync_state WHERE peer_id = ?`).value(peerId);
-  const val = row?.[0] ?? 0;
+  const raw = Number(row?.[0] ?? 0);
+  const val = Number.isFinite(raw) && raw > 0 ? raw : 0;
+  if (raw !== val) {
+    syncLog(`[peerstate] normalized invalid last_ts for ${peerId}: ${raw} -> ${val}`);
+  }
   syncLog(`[peerstate] getPeerSince(${peerId}) = ${val}`);
   return val;
 }
 
 function setPeerSince(peerId, ts) {
   try {
+    const normalized = Number.isFinite(ts) && ts > 0 ? ts : 0;
     db.prepare(`INSERT OR REPLACE INTO _peer_sync_state (peer_id, last_ts) VALUES (?, ?)`)
-      .run(peerId, ts);
+      .run(peerId, normalized);
     const verify = db.prepare(`SELECT last_ts FROM _peer_sync_state WHERE peer_id = ?`).value(peerId);
-    syncLog(`[peerstate] setPeerSince(${peerId}, ${ts}) -> verified=${verify?.[0]}`);
+    syncLog(`[peerstate] setPeerSince(${peerId}, ${normalized}) -> verified=${verify?.[0]}`);
   } catch (e) {
     log(`[peerstate] setPeerSince FAILED: ${e.message}`, "red");
   }
@@ -54,6 +59,8 @@ function applyChange(change) {
       : change.change_data;
 
   db.exec(`PRAGMA foreign_keys = OFF`);
+  db.exec(`BEGIN TRANSACTION`);
+  let shouldCommit = true;
   try {
     if (change.table_name === "posts") {
       if (change.operation === "INSERT") {
@@ -68,12 +75,14 @@ function applyChange(change) {
               existing[0],
               SERVER_ID,
             )
-          )
-            return;
-          db.exec(
-            `UPDATE posts SET content = ?, ts = ?, user_id = ? WHERE uuid = ?`,
-            [data.content, data.ts, data.user_id, change.record_id],
-          );
+          ) {
+            shouldCommit = false;
+          } else {
+            db.exec(
+              `UPDATE posts SET content = ?, ts = ?, user_id = ? WHERE uuid = ?`,
+              [data.content, data.ts, data.user_id, change.record_id],
+            );
+          }
         } else {
           db.exec(
             `INSERT OR IGNORE INTO posts (uuid, user_id, content, ts) VALUES (?, ?, ?, ?)`,
@@ -84,39 +93,45 @@ function applyChange(change) {
         const existing = db
           .prepare(`SELECT ts FROM posts WHERE uuid = ? OR id = ?`)
           .value(change.record_id, change.record_id);
-        if (!existing) return;
-        if (
-          !lwwWins(
-            change.timestamp,
-            change.origin_server_id,
-            existing[0],
-            SERVER_ID,
-          )
-        )
-          return;
-        if (data.field === "content") {
-          db.exec(
-            `UPDATE posts SET content = ?, ts = ? WHERE uuid = ? OR id = ?`,
-            [data.content, data.ts, change.record_id, change.record_id],
-          );
-        } else if (data.action === "like") {
-          db.exec(
-            `UPDATE posts SET users_liked = json_insert(users_liked, '$[#]', ?), likes = likes + 1 WHERE (uuid = ? OR id = ?) AND users_liked NOT LIKE '%' || ? || '%'`,
-            [data.user_id, change.record_id, change.record_id, data.user_id],
-          );
-        } else if (data.action === "unlike") {
-          const post = db
-            .prepare(`SELECT users_liked FROM posts WHERE uuid = ? OR id = ?`)
-            .value(change.record_id, change.record_id);
-          if (!post) return;
-          const liked = JSON.parse(post[0]);
-          const idx = liked.indexOf(data.user_id);
-          if (idx > -1) {
-            liked.splice(idx, 1);
+        if (!existing) {
+          shouldCommit = false;
+        } else {
+          if (
+            !lwwWins(
+              change.timestamp,
+              change.origin_server_id,
+              existing[0],
+              SERVER_ID,
+            )
+          ) {
+            shouldCommit = false;
+          } else if (data.field === "content") {
             db.exec(
-              `UPDATE posts SET users_liked = ?, likes = likes - 1 WHERE uuid = ? OR id = ?`,
-              [JSON.stringify(liked), change.record_id, change.record_id],
+              `UPDATE posts SET content = ?, ts = ? WHERE uuid = ? OR id = ?`,
+              [data.content, data.ts, change.record_id, change.record_id],
             );
+          } else if (data.action === "like") {
+            db.exec(
+              `UPDATE posts SET users_liked = json_insert(users_liked, '$[#]', ?), likes = likes + 1 WHERE (uuid = ? OR id = ?) AND users_liked NOT LIKE '%"' || ? || '"%'`,
+              [data.user_id, change.record_id, change.record_id, data.user_id],
+            );
+          } else if (data.action === "unlike") {
+            const post = db
+              .prepare(`SELECT users_liked FROM posts WHERE uuid = ? OR id = ?`)
+              .value(change.record_id, change.record_id);
+            if (!post) {
+              shouldCommit = false;
+            } else {
+              const liked = JSON.parse(post[0]);
+              const idx = liked.indexOf(data.user_id);
+              if (idx > -1) {
+                liked.splice(idx, 1);
+                db.exec(
+                  `UPDATE posts SET users_liked = ?, likes = likes - 1 WHERE uuid = ? OR id = ?`,
+                  [JSON.stringify(liked), change.record_id, change.record_id],
+                );
+              }
+            }
           }
         }
       } else if (change.operation === "DELETE") {
@@ -135,8 +150,9 @@ function applyChange(change) {
         const existing = db
           .prepare(`SELECT uuid FROM users WHERE uuid = ?`)
           .value(change.record_id);
-        if (!existing) return;
-        if (data.field === "username") {
+        if (!existing) {
+          shouldCommit = false;
+        } else if (data.field === "username") {
           db.exec(`UPDATE users SET username = ? WHERE uuid = ?`, [
             data.newValue,
             change.record_id,
@@ -171,6 +187,14 @@ function applyChange(change) {
         db.exec(`DELETE FROM inbox WHERE id = ?`, [change.record_id]);
       }
     }
+
+    if (!shouldCommit) {
+      db.exec(`ROLLBACK`);
+      db.exec(`PRAGMA foreign_keys = ON`);
+      return;
+    }
+
+    db.exec(`COMMIT`);
     db.exec(`PRAGMA foreign_keys = ON`);
     db.prepare(
       `INSERT OR IGNORE INTO _synced_changes
@@ -186,7 +210,12 @@ function applyChange(change) {
       JSON.stringify([SERVER_ID]),
     );
   } catch (e) {
-    db.exec(`PRAGMA foreign_keys = ON`);
+    try {
+      db.exec(`ROLLBACK`);
+    } catch {}
+    try {
+      db.exec(`PRAGMA foreign_keys = ON`);
+    } catch {}
     log(
       `applyChange error [${change.table_name}/${change.operation}]: ${e.message}`,
       "red",
@@ -233,6 +262,8 @@ async function syncWithPeer(peer) {
     }
 
     const toSend = getUnsyncedChanges(since).filter((c) => {
+      // Don't push changes back to their origin
+      if (c.origin_server_id === peer.id) return false;
       const synced = JSON.parse(c.synced_to_peers || "[]");
       return !synced.includes(peer.id);
     });

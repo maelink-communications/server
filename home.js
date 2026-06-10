@@ -97,7 +97,8 @@ export async function postLikeSet(token, postId) {
     const liked = JSON.parse(post[1] || '[]');
     if (!liked.includes(id)) {
       db.prepare(
-        `UPDATE posts SET users_liked = json_insert(users_liked, '$[#]', ?), likes = likes + 1 WHERE id = ? AND users_liked NOT LIKE '%' || ? || '%'`
+        `UPDATE posts SET users_liked = json_insert(users_liked, '$[#]', ?), likes = likes + 1 WHERE id = ? AND users_liked NOT LIKE '%"' || ? || '"%'
+        `
       ).run(id, postId, id);
       logChange('posts', 'UPDATE', postUuid, { action: 'like', user_id: id });
     } else {
