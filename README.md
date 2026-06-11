@@ -2,6 +2,8 @@
 
 ## Registered endpoints
 
+These are the only endpoints you should really worry about.
+
 POST /register - Register a new user
 
 POST /login - Authenticate a user (will give token that expires in 2 hours)
