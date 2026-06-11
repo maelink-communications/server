@@ -20,6 +20,7 @@ export function initDB() {
   db.exec(`CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT,
+    author TEXT,
     uuid TEXT UNIQUE,
     content TEXT,
     ts INTEGER,

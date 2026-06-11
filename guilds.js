@@ -22,3 +22,18 @@ export async function createGuild(token, name, description) {
     throw e;
   }
 }
+
+export async function fetchGuilds(token) {
+  if (!token) return false;
+  try {
+    const payload = await verifyToken(token);
+    const offset = (page - 1) * 25;
+  const stmt = db.prepare(
+    `SELECT *, CAST(ts AS REAL) as ts FROM guilds ORDER BY id DESC LIMIT 25 OFFSET ?`,
+  );
+  const posts = stmt.all(offset);
+  return posts;
+  } catch (e) {
+    throw e;
+  }
+}

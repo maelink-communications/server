@@ -12,18 +12,26 @@ async function resolveUser(token) {
   return payload.uuid;
 }
 
+async function resolveUsername(token) {
+  const payload = await verifyToken(token);
+  const user = db.prepare(`SELECT username FROM users WHERE uuid = ?`).value(payload.uuid);
+  if (!user) throw new Error("User not found");
+  return user[0];
+}
+
 export async function createPost(token, content) {
   if (!token || !content) return false;
   log(`createPost called with: ${token}, ${content}`);
   try {
     const id = await resolveUser(token);
+    const author = await resolveUsername(token);
     const ts = Date.now();
     const postUuid = crypto.randomUUID();
     db.prepare(
-      `INSERT INTO posts (uuid, user_id, content, ts) VALUES (?, ?, ?, ?)`
-    ).run(postUuid, id, content, ts);
+      `INSERT INTO posts (uuid, user_id, content, ts, author) VALUES (?, ?, ?, ?, ?)`
+    ).run(postUuid, id, content, ts, author);
     const postId = db.prepare(`SELECT id FROM posts WHERE uuid = ?`).value(postUuid)?.[0];
-    logChange('posts', 'INSERT', postUuid, { user_id: id, content, ts });
+    logChange('posts', 'INSERT', postUuid, { user_id: id, content, ts, author });
     return { error: false, content: content, postId, postUuid, ts: ts };
   } catch (e) {
     throw e;
