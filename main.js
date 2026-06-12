@@ -1,6 +1,4 @@
 // Main logic.
-// MAKE SURE YOU HAVE A .env FILE WITH THE JWT_SECRET SET!!!
-// Otherwise, authentication will NOT work and tokens will NOT be generated.
 import { register, login } from "./auth.js";
 import {
   createPost,
@@ -40,7 +38,10 @@ const CORS_HEADERS = {
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...CORS_HEADERS,
+    },
   });
 }
 
