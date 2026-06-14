@@ -1,4 +1,4 @@
-import { connectDB, logChange } from "./db.js";
+import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
 log("Inbox module loaded", "gray");
@@ -20,7 +20,6 @@ export async function sendMessage(recipient, content, senderDisplay) {
     `INSERT INTO inbox (id, user_id, sender_id, content, ts, read) VALUES (?, ?, ?, ?, ?, 0)`,
     [messageId, recip.uuid, senderDisplay, content, Date.now()],
   );
-  logChange('inbox', 'INSERT', messageId, { user_id: recip.uuid, sender_id: senderDisplay, content, ts: Date.now() });
   return true;
 }
 
@@ -42,7 +41,6 @@ export async function deleteMessage(messageId, userId) {
     messageId,
     userId,
   ]);
-  logChange('inbox', 'DELETE', messageId, { user_id: userId });
   return true;
 }
 
@@ -57,7 +55,6 @@ export async function setRead(messageId, token) {
     messageId,
     id,
   ]);
-  logChange('inbox', 'UPDATE', messageId, { field: 'read', newValue: 1 });
   return true;
 }
 

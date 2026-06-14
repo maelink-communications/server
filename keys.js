@@ -47,30 +47,9 @@ export function getPublicJwk() {
   return _publicJwk;
 }
 
-// Cache of peer public keys: serverId -> CryptoKey
-const peerKeys = new Map();
-
-export function cachePeerKey(serverId, cryptoKey) {
-  peerKeys.set(serverId, cryptoKey);
-}
-
-export function getPeerKey(serverId) {
-  return peerKeys.get(serverId);
-}
-
-// Verify a token using local key or a cached peer key (kid = serverId)
+// Verify a token using local key
 export async function verifyToken(token) {
-  const header = jose.decodeProtectedHeader(token);
-  const kid = header.kid;
-
-  let key;
-  if (!kid || kid === globalThis.SERVER_ID) {
-    key = getPublicKey();
-  } else {
-    key = getPeerKey(kid);
-    if (!key) throw new Error(`Unknown key id: ${kid}`);
-  }
-
+  const key = getPublicKey();
   const { payload } = await jose.jwtVerify(token, key);
   if (payload.exp < Date.now() / 1000) throw new Error("Token expired");
   return payload;

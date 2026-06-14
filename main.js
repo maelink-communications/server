@@ -1,4 +1,5 @@
 // Main logic.
+const SERVER_PORT = Deno.env.get("PORT") || 7000;
 import { register, login } from "./auth.js";
 import {
   createPost,
@@ -17,15 +18,10 @@ import {
 } from "./inbox.js";
 import { initDB } from "./db.js";
 import { log } from "./logging.js";
-import { startRegistryClient, SERVER_PORT } from "./peer.js";
-import { startSyncEngine, handleSyncChanges, handleSyncApply } from "./sync.js";
 import { initKeys, getPublicJwk } from "./keys.js";
-import { SERVER_ID } from "./peer.js";
 
 initDB();
 await initKeys();
-startRegistryClient();
-startSyncEngine();
 
 // Some helpers
 
@@ -202,18 +198,6 @@ async function handler(req) {
       log(e, "red");
       return json({ error: true }, 400);
     }
-  }
-
-  if (pathname === "/sync/pubkey" && method === "GET") {
-    return json({ ...getPublicJwk(), kid: SERVER_ID });
-  }
-
-  if (pathname === "/sync/changes" && method === "POST") {
-    return handleSyncChanges(req);
-  }
-
-  if (pathname === "/sync/apply" && method === "POST") {
-    return handleSyncApply(req);
   }
 
   return json({ error: true }, 404);

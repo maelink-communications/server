@@ -1,4 +1,4 @@
-import { connectDB, logChange } from "./db.js";
+import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
 const db = connectDB();
@@ -39,15 +39,12 @@ export async function editUser(token, username, pfp, bio) {
     id = payload.uuid;
     if (username && username.trim().length > 2) {
       db.exec(`UPDATE users SET username = ? WHERE uuid = ?`, username, id);
-      logChange('users', 'UPDATE', id, { field: 'username', newValue: username });
     }
     if (pfp && pfp.trim().length > 7) {
       db.exec(`UPDATE users SET pfp = ? WHERE uuid = ?`, pfp, id);
-      logChange('users', 'UPDATE', id, { field: 'pfp', newValue: pfp });
     }
     if (bio && bio.trim().length > 0) {
       db.exec(`UPDATE users SET bio = ? WHERE uuid = ?`, bio, id);
-      logChange('users', 'UPDATE', id, { field: 'bio', newValue: bio });
     }
     return true;
   } catch (e) {

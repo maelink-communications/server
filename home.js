@@ -1,5 +1,5 @@
 // Home service logic
-import { connectDB, logChange } from "./db.js";
+import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
 log("Home module loaded", "gray");
@@ -31,7 +31,6 @@ export async function createPost(token, content) {
       `INSERT INTO posts (uuid, user_id, content, ts, author) VALUES (?, ?, ?, ?, ?)`
     ).run(postUuid, id, content, ts, author);
     const postId = db.prepare(`SELECT id FROM posts WHERE uuid = ?`).value(postUuid)?.[0];
-    logChange('posts', 'INSERT', postUuid, { user_id: id, content, ts, author });
     return { error: false, content: content, postId, postUuid, ts: ts };
   } catch (e) {
     throw e;
@@ -61,8 +60,6 @@ export async function editPost(token, postId, content) {
       `UPDATE posts SET content = ?, ts = ? WHERE id = ? AND user_id = ?`,
       [content, Date.now(), postId, id],
     );
-    // Log the post edit for replication
-    logChange('posts', 'UPDATE', postUuid, { field: 'content', content, ts: Date.now() });
     return true;
   } catch (e) {
     throw e;
@@ -80,8 +77,6 @@ export async function destroyPost(token, postId) {
     const postUuid = db.prepare(`SELECT uuid FROM posts WHERE id = ?`).value(postId)?.[0];
     if (!postUuid) return false;
     db.exec(`DELETE FROM posts WHERE id = ? AND user_id = ?`, [postId, id]);
-    // Log the post deletion for replication
-    logChange('posts', 'DELETE', postUuid, { user_id: id });
     return true;
   } catch (e) {
     throw e;
@@ -101,21 +96,18 @@ export async function postLikeSet(token, postId) {
       log(`Post ${postId} not found`, "red");
       return false;
     }
-    const postUuid = post[0];
     const liked = JSON.parse(post[1] || '[]');
     if (!liked.includes(id)) {
       db.prepare(
         `UPDATE posts SET users_liked = json_insert(users_liked, '$[#]', ?), likes = likes + 1 WHERE id = ? AND users_liked NOT LIKE '%"' || ? || '"%'
         `
       ).run(id, postId, id);
-      logChange('posts', 'UPDATE', postUuid, { action: 'like', user_id: id });
     } else {
       const index = liked.indexOf(id);
       if (index > -1) {
         liked.splice(index, 1);
         db.prepare(`UPDATE posts SET users_liked = ?, likes = likes - 1 WHERE id = ?`)
           .run(JSON.stringify(liked), postId);
-        logChange('posts', 'UPDATE', postUuid, { action: 'unlike', user_id: id });
       }
     }
     return true;

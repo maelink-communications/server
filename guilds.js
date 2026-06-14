@@ -1,5 +1,5 @@
 // Guilds service
-import { connectDB, logChange } from "./db.js";
+import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
 const db = connectDB();
@@ -16,7 +16,6 @@ export async function createGuild(token, name, description) {
       `INSERT INTO guilds (uuid, name, description, ownerID) VALUES (?, ?, ?, ?)`,
       [id, name, description, payload.uuid],
     );
-    logChange("guilds", "INSERT", id, { uuid, name, description, ownerID: payload.uuid });
     return { id, name, description };
   } catch (e) {
     throw e;
@@ -27,6 +26,7 @@ export async function fetchGuilds(token) {
   if (!token) return false;
   try {
     const payload = await verifyToken(token);
+    if (!payload) return false;
     const offset = (page - 1) * 25;
   const stmt = db.prepare(
     `SELECT *, CAST(ts AS REAL) as ts FROM guilds ORDER BY id DESC LIMIT 25 OFFSET ?`,
