@@ -51,4 +51,4 @@ ALL should probably be done before a public beta, one or two things probably don
 2. Ensure you have Deno installed
 3. install required packages with `deno task install`
 4. Run `deno task start` to start the server
-5. Run `deno test.js --allow-all --env-file [-- --node=<ADDRESS>]` and the program will automatically test endpoints and report errors for you
+5. Run `deno test.js --allow-all --env-file [-- <args>]` and the program will automatically test endpoints and report errors for you
