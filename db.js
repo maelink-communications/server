@@ -74,9 +74,27 @@ export function initDB() {
   uuid TEXT UNIQUE,
   name TEXT NOT NULL,
   description TEXT,
-  ownerID TEXT
+  ownerID TEXT,
+  memberIDs TEXT DEFAULT '[]',
+  channels TEXT DEFAULT '[]',
+  ts INTEGER
 );
 `);
+  db.exec(`CREATE TABLE IF NOT EXISTS guild_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  guildID TEXT,
+  userID TEXT,
+  ts INTEGER,
+  content TEXT,
+  channelId TEXT
+);
+`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS keys (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  private_jwk TEXT NOT NULL,
+  public_jwk TEXT NOT NULL
+)`);
 
 // indexes
   db.exec(
@@ -89,6 +107,18 @@ export function initDB() {
   );
   db.exec(
     `CREATE INDEX IF NOT EXISTS idx_followers_flID ON followers(followedID)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_guilds ON guilds(uuid)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_guild_posts ON guild_posts(guildID)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_guild_posts_channel ON guild_posts(channelId)
 `,
   );
 

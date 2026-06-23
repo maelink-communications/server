@@ -4,17 +4,11 @@ import { log } from "./logging.js";
 
 const db = connectDB();
 
-db.exec(`CREATE TABLE IF NOT EXISTS _node_keys (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
-  private_jwk TEXT NOT NULL,
-  public_jwk TEXT NOT NULL
-)`);
-
 let _privateKey, _publicKey, _publicJwk;
 
 export async function initKeys() {
   const row = db
-    .prepare(`SELECT private_jwk, public_jwk FROM _node_keys WHERE id = 1`)
+    .prepare(`SELECT private_jwk, public_jwk FROM keys WHERE id = 1`)
     .value();
   if (row) {
     _privateKey = await jose.importJWK(JSON.parse(row[0]), "ES256");
@@ -27,7 +21,7 @@ export async function initKeys() {
     const privateJwk = await jose.exportJWK(privateKey);
     const publicJwk = await jose.exportJWK(publicKey);
     db.exec(
-      `INSERT INTO _node_keys (id, private_jwk, public_jwk) VALUES (1, ?, ?)`,
+      `INSERT INTO keys (id, private_jwk, public_jwk) VALUES (1, ?, ?)`,
       [JSON.stringify(privateJwk), JSON.stringify(publicJwk)],
     );
     _privateKey = privateKey;

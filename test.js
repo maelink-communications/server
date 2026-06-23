@@ -204,6 +204,78 @@ Deno.test("API flow", async (t) => {
     assert(res.status >= 200);
   });
 
+  await t.step("Guild endpoints coverage", async () => {
+    if (!token) return;
+
+    const guildHeaders = { Authorization: `Bearer ${token}` };
+
+    const createGuild = await request(
+      "POST",
+      "/guilds",
+      { name: `Guild ${unique}`, description: "Guild test" },
+      guildHeaders,
+    );
+    assert(createGuild.res.status !== 404, "POST /guilds should be registered");
+
+    const guildId = createGuild.data?.guilds?.id ?? createGuild.data?.id;
+    if (guildId) {
+      const listGuilds = await request("GET", "/guilds", undefined, guildHeaders);
+      assert(listGuilds.res.status !== 404, "GET /guilds should be registered");
+
+      const getGuildPosts = await request("GET", `/guild/${guildId}`, undefined, guildHeaders);
+      assert(getGuildPosts.res.status !== 404, "GET /guild/:guildId should be registered");
+
+      const editGuild = await request(
+        "PATCH",
+        `/guild/${guildId}`,
+        { name: `Updated ${unique}`, description: "Updated guild" },
+        guildHeaders,
+      );
+      assert(editGuild.res.status !== 404, "PATCH /guild/:guildId should be registered");
+
+      const postToGuild = await request(
+        "POST",
+        `/guild/${guildId}`,
+        { content: "Guild post" },
+        guildHeaders,
+      );
+      assert(postToGuild.res.status !== 404, "POST /guild/:guildId should be registered");
+
+      const getChannels = await request("GET", `/guild/channels/${guildId}`, undefined, guildHeaders);
+      assert(getChannels.res.status !== 404, "GET /guild/channels/:guildId should be registered");
+
+      const createChannel = await request(
+        "POST",
+        "/guild/channels",
+        { guildId, name: `general-${unique}` },
+        guildHeaders,
+      );
+      assert(createChannel.res.status !== 404, "POST /guild/channels should be registered");
+
+      const channelId = createChannel.data?.channel?.id ?? createChannel.data?.id;
+      if (channelId) {
+        const patchChannel = await request(
+          "PATCH",
+          `/guild/channels/${guildId}`,
+          { channelId, name: `updated-${unique}` },
+          guildHeaders,
+        );
+        assert(patchChannel.res.status !== 404, "PATCH /guild/channels/:guildId should be registered");
+
+        const deleteChannel = await request(
+          "DELETE",
+          "/guild/channels",
+          { guildId, channelId },
+          guildHeaders,
+        );
+        assert(deleteChannel.res.status !== 404, "DELETE /guild/channels should be registered");
+      }
+
+      const deleteGuild = await request("DELETE", `/guild/${guildId}`, undefined, guildHeaders);
+      assert(deleteGuild.res.status !== 404, "DELETE /guild/:guildId should be registered");
+    }
+  });
+
   if (destroyPost) {
     await t.step("DELETE /post", async () => {
       if (!token) return;
