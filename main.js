@@ -325,9 +325,9 @@ async function handler(req) {
     const guildId = pathParts[1];
     const { page } = await readJsonBody(req);
     try {
-      const guild = await guilds.fetchGuildPosts(token, guildId, page);
+      const guildposts = await guilds.fetchGuildPosts(token, guildId, page);
       if (!guild) return json({ error: true }, 400);
-      return json({ error: false });
+      return json({ error: false, posts: guildposts });
     } catch (e) {
       log(e, "red");
       return json({ error: true }, 400);
