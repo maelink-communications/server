@@ -7,7 +7,7 @@ export async function fetchUser(token, userId) {
   if (!userId || !token) return false;
   try {
     const payload = await verifyToken(token);
-    if (payload.uuid !== userId) return false;
+    if (!payload) return false;
     const user = db
       .prepare(
         `SELECT u.username, u.pfp, u.bio,
@@ -34,9 +34,12 @@ export async function editUser(token, username, pfp, bio) {
   let id;
   try {
     const payload = await verifyToken(token);
-    const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
+    const user = db
+      .prepare(`SELECT uuid FROM users WHERE uuid = ?`)
+      .value(payload.uuid);
     if (!user) return false;
     id = payload.uuid;
+    if (id !== user[0]) return false;
     if (username && username.trim().length > 2) {
       db.exec(`UPDATE users SET username = ? WHERE uuid = ?`, username, id);
     }

@@ -32,20 +32,21 @@ export async function createGuild(token, name, description) {
     db.prepare(
       `INSERT INTO guilds (uuid, name, description, ownerID, memberIDs, channels, ts) VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).run(id, name, description, payload.uuid, JSON.stringify([payload.uuid]), JSON.stringify([]), Date.now());
+    await createChannel(token, id, "general");
     return { id, name, description };
   } catch (e) {
     throw e;
   }
 }
 
-export async function fetchGuilds(token, page) {
+export async function fetchGuilds(token, page = 1) {
   if (!token) return false;
   try {
     const payload = await verifyToken(token);
     if (!payload) return false;
-    const offset = (page - 1) * 25;
+    const offset = (Math.floor(page) - 1) * 25;
     const stmt = db.prepare(
-      `SELECT *, CAST(ts AS REAL) as ts FROM guilds ORDER BY id DESC LIMIT 25 OFFSET ?`,
+      `SELECT * FROM guilds ORDER BY id DESC LIMIT 25 OFFSET ?`,
     );
     const posts = stmt.all(offset);
     return posts;
@@ -227,7 +228,7 @@ export async function fetchGuildChannels(token, guildId) {
   }
 }
 
-export async function fetchGuildPosts(token, guildId, page) {
+export async function fetchGuildPosts(token, channel, guildId, page) {
   if (!token) return false;
   let id;
   try {
@@ -235,7 +236,7 @@ export async function fetchGuildPosts(token, guildId, page) {
     const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
     if (!user) return false;
     id = payload.uuid;
-    const guild = db.prepare(`SELECT content FROM guild_posts WHERE guildID = ? ORDER BY id DESC LIMIT 25 OFFSET ?`).value(guildId, (page - 1) * 25);
+    const guild = db.prepare(`SELECT *, cast(ts AS REAL) as ts FROM guild_posts WHERE guildID = ? AND channelID = ? ORDER BY id DESC LIMIT 25 OFFSET ?`).value(guildId, channel, (page - 1) * 25);
     if (!guild || !JSON.parse(guild[0]).includes(id)) return false;
     return JSON.parse(guild[0]);
   } catch (e) {

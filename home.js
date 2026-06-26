@@ -16,7 +16,7 @@ async function resolveUsername(token) {
   const payload = await verifyToken(token);
   const user = db.prepare(`SELECT username FROM users WHERE uuid = ?`).value(payload.uuid);
   if (!user) throw new Error("User not found");
-  return user;
+  return user[0];
 }
 
 export async function createPost(token, content) {
