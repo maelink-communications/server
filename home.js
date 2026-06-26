@@ -2,6 +2,7 @@
 import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
+import { emitHomePost, emitHomePostEdit, emitHomePostDelete } from "./socket.js";
 log("Home module loaded", "gray");
 const db = connectDB();
 
@@ -12,7 +13,7 @@ async function resolveUser(token) {
   return payload.uuid;
 }
 
-async function resolveUsername(token) {
+export async function resolveUsername(token) {
   const payload = await verifyToken(token);
   const user = db.prepare(`SELECT username FROM users WHERE uuid = ?`).value(payload.uuid);
   if (!user) throw new Error("User not found");
@@ -31,7 +32,9 @@ export async function createPost(token, content) {
       `INSERT INTO posts (uuid, user_id, content, ts, author) VALUES (?, ?, ?, ?, ?)`
     ).run(postUuid, id, content, ts, author);
     const postId = db.prepare(`SELECT id FROM posts WHERE uuid = ?`).value(postUuid);
-    return { error: false, content: content, postId, postUuid, ts: ts };
+    const post = { error: false, content, postId, postUuid, ts, author };
+    emitHomePost(post);
+    return post;
   } catch (e) {
     throw e;
   }
@@ -59,6 +62,7 @@ export async function editPost(token, postId, content) {
     db.prepare(
       `UPDATE posts SET content = ?, ts = ? WHERE id = ? AND user_id = ?`
     ).run(content, Date.now(), postId, id);
+    emitHomePostEdit(postId, content);
     return true;
   } catch (e) {
     throw e;
@@ -76,6 +80,7 @@ export async function destroyPost(token, postId) {
     const postUuid = db.prepare(`SELECT uuid FROM posts WHERE id = ?`).value(postId);
     if (!postUuid) return false;
     db.prepare(`DELETE FROM posts WHERE id = ? AND user_id = ?`).run(postId, id);
+    emitHomePostDelete(postId);
     return true;
   } catch (e) {
     throw e;

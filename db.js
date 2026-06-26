@@ -86,7 +86,8 @@ export function initDB() {
   userID TEXT,
   ts INTEGER,
   content TEXT,
-  channelId TEXT
+  channelId TEXT,
+  author TEXT
 );
 `);
 

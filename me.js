@@ -39,7 +39,7 @@ export async function editUser(token, username, pfp, bio) {
       .value(payload.uuid);
     if (!user) return false;
     id = payload.uuid;
-    if (id !== user[0]) return false;
+    if (id !== user) return false;
     if (username && username.trim().length > 2) {
       db.exec(`UPDATE users SET username = ? WHERE uuid = ?`, username, id);
     }

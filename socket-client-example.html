@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Socket.IO Client Example</title>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+</head>
+<body>
+  <h1>Socket.IO Client Example</h1>
+  <input id="token" placeholder="Paste your token here" />
+  <button onclick="authenticate()">Connect</button>
+  <div id="status"></div>
+  <div id="events"></div>
+
+  <script>
+    const socket = io('http://localhost:7000');
+    
+    socket.on('connect', () => {
+      log('Connected to server');
+    });
+
+    socket.on('authenticated', (data) => {
+      log(`Authenticated as: ${data.username}`);
+    });
+
+    socket.on('error', (data) => {
+      log(`Error: ${data.message}`, 'red');
+    });
+
+    // Home events
+    socket.on('home:post', (post) => {
+      log(`New home post: ${post.content} by ${post.author}`);
+    });
+
+    socket.on('home:post:edit', (data) => {
+      log(`Post ${data.postId} edited: ${data.content}`);
+    });
+
+    socket.on('home:post:delete', (data) => {
+      log(`Post ${data.postId} deleted`);
+    });
+
+    // Guild events
+    socket.on('guild:post', (data) => {
+      log(`Guild post in ${data.guildId}: ${data.content} by ${data.author}`);
+    });
+
+    socket.on('guild:update', (data) => {
+      log(`Guild ${data.guildId} updated`);
+    });
+
+    socket.on('guild:channel:create', (data) => {
+      log(`Channel created in guild ${data.guildId}: ${data.channel.name}`);
+    });
+
+    socket.on('guild:channel:delete', (data) => {
+      log(`Channel ${data.channelId} deleted from guild ${data.guildId}`);
+    });
+
+    // Inbox events
+    socket.on('inbox:message', (message) => {
+      log(`New inbox message: ${message.content}`);
+    });
+
+    function authenticate() {
+      const token = document.getElementById('token').value;
+      socket.emit('auth', token);
+    }
+
+    function log(message, color = 'black') {
+      const div = document.createElement('div');
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      div.style.color = color;
+      document.getElementById('events').appendChild(div);
+    }
+  </script>
+</body>
+</html>

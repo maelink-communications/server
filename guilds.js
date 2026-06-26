@@ -2,6 +2,7 @@
 import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
+import { emitGuildPost, emitGuildUpdate, emitGuildChannelCreate, emitGuildChannelDelete, joinGuildRoom, leaveGuildRoom } from "./socket.js";
 const db = connectDB();
 log("Guilds module loaded", "gray");
 
@@ -71,6 +72,7 @@ export async function editGuild(token, guildId, name, description) {
     if (description && description.trim().length > 2) {
       db.exec(`UPDATE guilds SET description = ? WHERE uuid = ?`, [description, guildId]);
     }
+    emitGuildUpdate(guildId, { name, description });
     return true;
   } catch (e) {
     throw e;
@@ -106,6 +108,7 @@ export async function joinGuild(token, guildId) {
     if (memberIDs.includes(payload.uuid)) return true;
     memberIDs.push(payload.uuid);
     db.prepare(`UPDATE guilds SET memberIDs = ? WHERE uuid = ?`).run(JSON.stringify(memberIDs), guildId);
+    joinGuildRoom(payload.uuid, guildId);
     return true;
   } catch (e) {
     throw e;
@@ -124,6 +127,7 @@ export async function leaveGuild(token, guildId) {
     const memberIDs = parseJsonArray(guild?.memberIDs ?? "[]");
     const nextMembers = memberIDs.filter((memberId) => memberId !== payload.uuid);
     db.prepare(`UPDATE guilds SET memberIDs = ? WHERE uuid = ?`).run(JSON.stringify(nextMembers), guildId);
+    leaveGuildRoom(payload.uuid, guildId);
     return true;
   } catch (e) {
     throw e;
@@ -140,8 +144,11 @@ export async function postToGuild(token, guildId, content, channelId) {
     id = payload.uuid;
     const guild = db.prepare(`SELECT memberIDs FROM guilds WHERE uuid = ?`).get(guildId);
     if (!isGuildMember(guild, id)) return false;
-    db.exec(`INSERT INTO guild_posts (guildID, userID, content, channelId, ts) VALUES (?, ?, ?, ?, ?)`, guildId, id, content, channelId, Date.now());
-    return true;
+    const author = db.prepare(`SELECT username FROM users WHERE uuid = ?`).value(id)?.[0] ?? null;
+    db.exec(`INSERT INTO guild_posts (guildID, userID, content, channelId, ts, author) VALUES (?, ?, ?, ?, ?, ?)`, guildId, id, content, channelId, Date.now(), author);
+    const post = { guildId, id, content, channelId, ts: Date.now(), author };
+    emitGuildPost(guildId, post);
+    return post;
   } catch (e) {
     throw e;
   }
@@ -162,7 +169,9 @@ export async function createChannel(token, guildId, name) {
     const channelId = crypto.randomUUID();
     channels.push({ id: channelId, name });
     db.exec(`UPDATE guilds SET channels = ? WHERE uuid = ?`, JSON.stringify(channels), guildId);
-    return { id: channelId, name };
+    const channel = { id: channelId, name };
+    emitGuildChannelCreate(guildId, channel);
+    return channel;
   } catch (e) {
     throw e;
   }
@@ -184,6 +193,7 @@ export async function deleteChannel(token, guildId, channelId) {
     if (channelIndex === -1) return false;
     channels.splice(channelIndex, 1);
     db.exec(`UPDATE guilds SET channels = ? WHERE uuid = ?`, JSON.stringify(channels), guildId);
+    emitGuildChannelDelete(guildId, channelId);
     return true;
   } catch (e) {
     throw e;
@@ -214,32 +224,30 @@ export async function editChannel(token, guildId, channelId, name) {
 
 export async function fetchGuildChannels(token, guildId) {
   if (!token) return false;
-  let id;
-  try {
-    const payload = await verifyToken(token);
-    const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
-    if (!user) return false;
-    id = payload.uuid;
-    const guild = db.prepare(`SELECT memberIDs, channels FROM guilds WHERE uuid = ?`).get(guildId);
-    if (!isGuildMember(guild, id)) return false;
-    return parseJsonArray(guild?.channels ?? "[]");
-  } catch (e) {
-    throw e;
-  }
+  const payload = await verifyToken(token);
+  const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
+  if (!user) return false;
+  const guild = db.prepare(`SELECT memberIDs, channels FROM guilds WHERE uuid = ?`).get(guildId);
+  if (!isGuildMember(guild, payload.uuid)) return false;
+  const channels = parseJsonArray(guild?.channels ?? "[]");
+  const offset = 0;
+  const posts = db.prepare(
+    `SELECT *, CAST(ts AS REAL) as ts FROM guild_posts WHERE guildID = ? ORDER BY id DESC LIMIT 25 OFFSET ?`
+  ).all(guildId, offset);
+  return channels.map(ch => ({
+    ...ch,
+    posts: posts.filter(p => p.channelId === ch.id)
+  }));
 }
 
 export async function fetchGuildPosts(token, channel, guildId, page) {
   if (!token) return false;
-  let id;
-  try {
-    const payload = await verifyToken(token);
-    const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
-    if (!user) return false;
-    id = payload.uuid;
-    const guild = db.prepare(`SELECT *, cast(ts AS REAL) as ts FROM guild_posts WHERE guildID = ? AND channelID = ? ORDER BY id DESC LIMIT 25 OFFSET ?`).value(guildId, channel, (page - 1) * 25);
-    if (!guild || !JSON.parse(guild[0]).includes(id)) return false;
-    return JSON.parse(guild[0]);
-  } catch (e) {
-    throw e;
-  }
+  const payload = await verifyToken(token);
+  const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
+  if (!user) return false;
+  const guild = db.prepare(`SELECT memberIDs FROM guilds WHERE uuid = ?`).get(guildId);
+  if (!isGuildMember(guild, payload.uuid)) return false;
+  return db.prepare(
+    `SELECT *, CAST(ts AS REAL) as ts FROM guild_posts WHERE guildID = ? AND channelId = ? ORDER BY id DESC LIMIT 25 OFFSET ?`
+  ).all(guildId, channel, (page - 1) * 25);
 }

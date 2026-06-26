@@ -8,6 +8,7 @@ import * as guilds from "./guilds.js";
 import * as db from "./db.js";
 import { log } from "./logging.js";
 import * as keys from "./keys.js";
+import { initSocket } from "./socket.js";
 
 await db.initDB();
 await keys.initKeys();
@@ -358,7 +359,7 @@ async function handler(req) {
     try {
       const guild = await guilds.postToGuild(token, guildId, content, channelId);
       if (!guild) return json({ error: true }, 400);
-      return json({ error: false });
+      return json({ error: false, post: guild });
     } catch (e) {
       log(e, "red");
       return json({ error: true }, 400);
@@ -382,8 +383,11 @@ async function handler(req) {
   return json({ error: true }, 404);
 }
 
-Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req) => {
+const server = Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req) => {
   return withCors(await handler(req));
 });
 
+initSocket(server);
+
 log("PROTOKOL | Server is running on http://localhost:7000", "magenta");
+log("Socket.IO enabled on the same port", "magenta");
