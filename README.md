@@ -1,49 +1,87 @@
 <a href="https://ibb.co/h11T3vTV"><img src="https://i.ibb.co/3YYPgHPc/banner-protokol.png" alt="banner-protokol" border="0"></a>
 
-## Registered endpoints
+## Server Ports
 
-These are the only endpoints you should really worry about.
+- **HTTP API**: `http://localhost:7000`
+- **Socket.io**: `http://localhost:7001`
 
-POST /register - Register a new user
+## Registered Endpoints
 
-POST /login - Authenticate a user (will give token that expires in 2 hours)
+### Authentication
+- `POST /register` - Register a new user
+- `POST /login` - Authenticate a user (token expires in 2 hours)
 
-POST /home - Fetch home posts (optional "p" header for page number, 1 is default 1st page)
+### Home Feed
+- `GET /home` - Fetch home posts (optional "p" header for page number)
+- `POST /post` - Create a new post (requires Authorization header)
+- `PATCH /post` - Update or like/unlike a post (requires Authorization header, use `like: true` for liking)
+- `DELETE /post` - Delete post (requires Authorization header, requires `postId` in body)
 
-POST /post - Create a new post (requires Authorization header)
+### User
+- `GET /user/:userId` - Fetch user profile (requires Authorization header)
+- `PATCH /user` - Edit own profile (requires Authorization header)
 
-PATCH /post - Update post (requires Authorization header)
+### Inbox
+- `GET /inbox` - Fetch inbox messages (requires Authorization header, optional "p" header)
+- `PATCH /inbox` - Mark message as read (requires Authorization header and `message_id` in body)
 
-DELETE /post - Delete post (requires Authorization header)
+### Guilds/Bubbles
+- `GET /guilds` - List all guilds (requires Authorization header)
+- `POST /guilds` - Create a guild (requires Authorization header, needs `name` and `description`)
+- `GET /guild/:guildId` - Fetch guild posts (requires Authorization header)
+- `PATCH /guild/:guildId` - Edit guild details (requires Authorization header)
+- `DELETE /guild/:guildId` - Delete guild (requires Authorization header)
+- `POST /guild/:guildId/join` - Join a guild (requires Authorization header)
+- `DELETE /guild/:guildId/leave` - Leave a guild (requires Authorization header)
+- `GET /guild/:guildId/members` - Get guild members with usernames (requires Authorization header)
 
-GET /inbox - Fetch inbox messages (requires Authorization header, optional "p" header for page number, 1 is default 1st page)
+### Channels
+- `GET /guild/channels/:guildId` - Fetch guild channels (requires Authorization header)
+- `POST /guild/channels` - Create channel (requires Authorization header, needs `guildId` and `name`)
+- `PATCH /guild/channels/:guildId` - Edit channel (requires Authorization header)
+- `DELETE /guild/channels` - Delete channel (requires Authorization header)
 
-PATCH /inbox - Set inbox messages as read (requires Authorization header and "message_id" (message integer ID) in body)
+### Guild Posts
+- `POST /guild/:guildId/:channelId` - Post message to guild channel (requires Authorization header)
 
-## - WHAT'S LEFT TO BE DONE! -
+### Socket.io Events (Port 7001)
 
-Home - post interactions:
+**Client to Server:**
+- `auth` - Authenticate with JWT token
 
-- Liking posts
-- Commenting on posts  
-- Replying to posts(?)<br>
-**Home is the very core of the service and as such is top priority!**
+**Server to Client:**
+- `authenticated` - Confirmation of successful authentication
+- `error` - Error message
+- `home:post` - New home post created
+- `home:post:edit` - Home post edited
+- `home:post:delete` - Home post deleted
+- `guild:post` - New guild message (only to guild members)
+- `guild:update` - Guild details updated
+- `guild:channel:create` - New channel created
+- `guild:channel:delete` - Channel deleted
+- `inbox:message` - New inbox message (only to recipient)
 
-Bubbles - entire implementation:
+## Features Implemented
 
-- Bubble creation, modification and deletion
-- Channel creation, modification and deletion
-- Posting (and everything to do with home posts except with no likes or reposts and such)
+### Completed
+- User registration and authentication
+- Home feed with pagination
+- Post creation, editing, deletion
+- Post liking system
+- User profiles (view and edit)
+- Inbox messaging system
+- Guilds/Bubbles (create, join, leave, delete)
+- Guild channels (create, edit, delete)
+- Guild messaging
+- Real-time updates via Socket.io
+- Guild member listing with usernames
 
-User - fetch, edit, etc. /me endpoint needed! ✅ **Top priority!**
-
-Settings - fetch, edit, etc. **Medium priority for clients**
-
-Inbox - fetch, notif sending... that kind of thing. **Low-ish priority, does not need to be finished for beta release.**
-
-Admin/mod - grant mod statuses, mod actions on everything, sending to inboxes, etc. ***THIS IS HIGH PRIORITY AFTER AT LEAST HOME IS DONE!***
-
-ALL should probably be done before a public beta, one or two things probably don't need to be finished fully
+### In progress / TODO
+- Commenting on posts
+- Replying to posts
+- Settings management
+- Admin/moderator features
+- User roles and permissions
 
 ## Running the server
 
