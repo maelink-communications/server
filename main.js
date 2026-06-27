@@ -8,7 +8,7 @@ import * as guilds from "./guilds.js";
 import * as db from "./db.js";
 import { log } from "./logging.js";
 import * as keys from "./keys.js";
-import { initSocket } from "./socket.js";
+import * as socket from "./socket.js";
 
 await db.initDB();
 await keys.initKeys();
@@ -292,6 +292,20 @@ async function handler(req) {
     }
   }
 
+  if (pathParts[0] === "guild" && pathParts[2] === "members" && method === "GET") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const guildId = pathParts[1];
+    try {
+      const members = await guilds.fetchGuildMembers(token, guildId);
+      if (!members) return json({ error: true }, 400);
+      return json({ error: false, members });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
   if (pathParts[0] === "guild" && pathParts[2] === "join" && method === "POST") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
@@ -387,7 +401,8 @@ const server = Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req)
   return withCors(await handler(req));
 });
 
-initSocket(server);
-
 log("PROTOKOL | Server is running on http://localhost:7000", "magenta");
-log("Socket.IO enabled on the same port", "magenta");
+
+// Initialize Socket.IO on separate port
+socket.initSocket();
+log("Socket.IO enabled on port 7001", "magenta");

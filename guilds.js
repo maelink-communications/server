@@ -251,3 +251,22 @@ export async function fetchGuildPosts(token, channel, guildId, page) {
     `SELECT *, CAST(ts AS REAL) as ts FROM guild_posts WHERE guildID = ? AND channelId = ? ORDER BY id DESC LIMIT 25 OFFSET ?`
   ).all(guildId, channel, (page - 1) * 25);
 }
+
+export async function fetchGuildMembers(token, guildId) {
+  if (!token) return false;
+  try {
+    const payload = await verifyToken(token);
+    const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
+    if (!user) return false;
+    const guild = db.prepare(`SELECT memberIDs FROM guilds WHERE uuid = ?`).get(guildId);
+    if (!isGuildMember(guild, payload.uuid)) return false;
+    const memberIDs = parseJsonArray(guild?.memberIDs ?? "[]");
+    const members = memberIDs.map(uid => {
+      const userData = db.prepare(`SELECT uuid, username, pfp FROM users WHERE uuid = ?`).get(uid);
+      return userData || { uuid: uid, username: "Unknown", pfp: null };
+    });
+    return members;
+  } catch (e) {
+    throw e;
+  }
+}
