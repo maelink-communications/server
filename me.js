@@ -31,26 +31,42 @@ export async function fetchUser(token, userId) {
 }
 export async function editUser(token, username, pfp, bio) {
   if (!token) return false;
-  let id;
-  try {
-    const payload = await verifyToken(token);
-    const user = db
-      .prepare(`SELECT uuid FROM users WHERE uuid = ?`)
-      .value(payload.uuid);
-    if (!user) return false;
-    id = payload.uuid;
-    if (id !== user) return false;
-    if (username && username.trim().length > 2) {
-      db.exec(`UPDATE users SET username = ? WHERE uuid = ?`, username, id);
-    }
-    if (pfp && pfp.trim().length > 7) {
-      db.exec(`UPDATE users SET pfp = ? WHERE uuid = ?`, pfp, id);
-    }
-    if (bio && bio.trim().length > 0) {
-      db.exec(`UPDATE users SET bio = ? WHERE uuid = ?`, bio, id);
-    }
-    return true;
-  } catch (e) {
-    throw e;
+
+  const payload = await verifyToken(token);
+
+  const user = db
+    .prepare("SELECT uuid FROM users WHERE uuid = ?")
+    .value(payload.uuid);
+
+  // user is actually something like [ "uuid" ]
+  if (payload.uuid !== user[0]) return false;
+  // make a single update instead of 3 updates
+  const updates = [];
+  const values = [];
+
+  if (username?.trim().length > 2) {
+    updates.push("username = ?");
+    values.push(username.trim());
   }
+
+  if (pfp?.trim().length > 7) {
+    updates.push("pfp = ?");
+    values.push(pfp.trim());
+  }
+
+  if (bio?.trim().length > 0) {
+    updates.push("bio = ?");
+    values.push(bio.trim());
+  }
+
+  if (updates.length === 0) return false;
+
+  values.push(payload.uuid);
+
+  db.exec(
+    `UPDATE users SET ${updates.join(", ")} WHERE uuid = ?`,
+    ...values
+  );
+
+  return true;
 }
