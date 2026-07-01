@@ -27,7 +27,6 @@ export async function fetchUser(token, userId) {
     return { username: user[0], pfp: user[1], bio: user[2], followers };
   } catch (e) {
     console.log(e);
-    return false;
   }
 }
 export async function editUser(token, username, pfp, bio) {
