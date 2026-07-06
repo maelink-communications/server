@@ -56,6 +56,25 @@ export async function fetchGuilds(token, page = 1) {
   }
 }
 
+export async function fetchSubscribedGuilds(token) {
+  if (!token) return false;
+  try {
+    const payload = await verifyToken(token);
+    if (!payload) return false;
+    const stmt = db.prepare(
+      `SELECT * FROM guilds ORDER BY id`
+    );
+    const guilds = stmt.all();
+    const subscribedGuilds = guilds.filter(guild => {
+      const memberIDs = parseJsonArray(guild?.memberIDs ?? "[]");
+      return memberIDs.includes(payload.uuid);
+    });
+    return subscribedGuilds;
+  } catch (e) {
+    throw e;
+  }
+}
+
 export async function editGuild(token, guildId, name, description) {
   if (!token) return false;
   let id;

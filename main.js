@@ -180,7 +180,7 @@ async function handler(req) {
   }
 
   if (pathParts[0] === "inbox" && method === "GET") {
-    const page = parseInt(req.headers.get("p") ?? "1");
+    const page = parseInt(url.searchParams.get("page") || "1");
     const token = getToken(req).toString();
     log(`Fetch messages called with page: ${page}, token: ${token}`, "blue");
     if (!token) return json({ error: true }, 401);
@@ -215,6 +215,19 @@ async function handler(req) {
     const { page } = await readJsonBody(req);
     try {
       const fetchedGuilds = await guilds.fetchGuilds(token, page);
+      if (!fetchedGuilds) return json({ error: true }, 400);
+      return json({ error: false, guilds: fetchedGuilds });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  if (pathParts[0] === "guilds" && pathParts[1] === "subscribed" && method === "GET") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    try {
+      const fetchedGuilds = await guilds.fetchSubscribedGuilds(token);
       if (!fetchedGuilds) return json({ error: true }, 400);
       return json({ error: false, guilds: fetchedGuilds });
     } catch (e) {
