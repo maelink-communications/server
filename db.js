@@ -6,7 +6,7 @@ const startTime = performance.now();
 const db = new Database("main.db");
 import { log } from "./logging.js";
 export function initDB() {
-// tables (mostly)
+  // tables (mostly)
   db.exec(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     uuid TEXT UNIQUE,
@@ -91,13 +91,13 @@ export function initDB() {
 );
 `);
 
-db.exec(`CREATE TABLE IF NOT EXISTS keys (
+  db.exec(`CREATE TABLE IF NOT EXISTS keys (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   private_jwk TEXT NOT NULL,
   public_jwk TEXT NOT NULL
 )`);
 
-// indexes
+  // indexes
   db.exec(
     `CREATE INDEX IF NOT EXISTS idx_users_uuid ON users(uuid)
 `,
@@ -122,14 +122,22 @@ db.exec(`CREATE TABLE IF NOT EXISTS keys (
     `CREATE INDEX IF NOT EXISTS idx_guild_posts_channel ON guild_posts(channelId)
 `,
   );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_users_urn ON users(username)
+`,
+  );
 
   const endTime = performance.now();
   log(`Done initializing DB.`, "gray");
   if (((endTime - startTime) / 1000).toFixed(3) > 1) {
-      log(
-        `/!\\ | DB initialization took ${((endTime - startTime) / 1000).toFixed(3)}s. If this is not first-time initialization, consider optimizing.`,
-        "yellow",
-      );
+    log(
+      `/!\\ | DB initialization took ${((endTime - startTime) / 1000).toFixed(3)}s. If this is not first-time initialization, consider optimizing.`,
+      "yellow",
+    );
   }
 }
 

@@ -69,24 +69,21 @@ async function handler(req) {
     return new Response(null);
   }
 
-  if (
-    (pathParts[0] === "register") &&
-    method === "POST"
-  ) {
+  if (pathParts[0] === "register" && method === "POST") {
     const { username, password } = await req.json();
     const reg = await auth.register(username, password);
     if (!reg) return json({ error: true }, 400);
     return json({ error: false, user: reg });
   }
 
-  if ((pathParts[0] === "login") && method === "POST") {
+  if (pathParts[0] === "login" && method === "POST") {
     const { username, password } = await req.json();
     const user = await auth.login(username, password);
     if (!user) return json({ error: true }, 401);
     return json({ error: false, user });
   }
 
-  if ((pathParts[0] === "post") && method === "POST") {
+  if (pathParts[0] === "home" && method === "POST") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { content } = await req.json();
@@ -100,8 +97,8 @@ async function handler(req) {
     }
   }
 
-  if ((pathParts[0] === "home") && method === "GET") {
-    const page = parseInt(req.headers.get("p") ?? "1");
+  if (pathParts[0] === "home" && method === "GET") {
+    const page = parseInt(url.searchParams.get("page") || "1");
     try {
       const posts = await home.fetchPosts(page);
       return json({ error: false, page, posts });
@@ -111,7 +108,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathParts[0] === "post") && method === "PATCH") {
+  if (pathParts[0] === "home" && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { postId, content, like } = await req.json();
@@ -131,7 +128,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathParts[0] === "post") && method === "DELETE") {
+  if (pathParts[0] === "home" && method === "DELETE") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { postId } = await req.json();
@@ -145,24 +142,25 @@ async function handler(req) {
     }
   }
 
-  if (
-    (pathParts[0] === "user") &&
-    method === "GET"
-  ) {
+  if (pathParts[0] === "user" && method === "GET") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const userId = pathParts[1];
+    const p = parseInt(url.searchParams.get("page") || "1");
+    let userPosts = [];
     try {
       const user = await me.fetchUser(token, userId);
-      if (!user) return json({ error: true }, 400);
-      return json({ error: false, user });
+      if (!user) { return json({ error: true }, 400) } else {
+        userPosts = await me.fetchUserPosts(token, userId, p);
+      };
+      return json({ error: false, user, userPosts });
     } catch (e) {
       log(e, "red");
       return json({ error: true }, 400);
     }
   }
 
-  if ((pathParts[0] === "user") && method === "PATCH") {
+  if (pathParts[0] === "user" && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { username, pfp, bio } = await req.json();
@@ -176,7 +174,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathParts[0] === "inbox") && method === "GET") {
+  if (pathParts[0] === "inbox" && method === "GET") {
     const page = parseInt(req.headers.get("p") ?? "1");
     const token = getToken(req).toString();
     log(`Fetch messages called with page: ${page}, token: ${token}`, "blue");
@@ -192,7 +190,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathParts[0] === "inbox") && method === "PATCH") {
+  if (pathParts[0] === "inbox" && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { message_id } = await req.json();
@@ -206,7 +204,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathParts[0] === "guilds") && method === "GET") {
+  if (pathParts[0] === "guilds" && method === "GET") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { page } = await readJsonBody(req);
@@ -220,7 +218,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathParts[0] === "guilds") && method === "POST") {
+  if (pathParts[0] === "guilds" && method === "POST") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { name, description } = await readJsonBody(req);
@@ -234,7 +232,8 @@ async function handler(req) {
     }
   }
 
-  const isGuildChannelsRoute = pathParts[0] === "guild" && pathParts[1] === "channels";
+  const isGuildChannelsRoute =
+    pathParts[0] === "guild" && pathParts[1] === "channels";
 
   if (isGuildChannelsRoute && method === "GET") {
     const token = getToken(req);
@@ -293,7 +292,11 @@ async function handler(req) {
     }
   }
 
-  if (pathParts[0] === "guild" && pathParts[2] === "members" && method === "GET") {
+  if (
+    pathParts[0] === "guild" &&
+    pathParts[2] === "members" &&
+    method === "GET"
+  ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const guildId = pathParts[1];
@@ -307,7 +310,11 @@ async function handler(req) {
     }
   }
 
-  if (pathParts[0] === "guild" && pathParts[2] === "join" && method === "POST") {
+  if (
+    pathParts[0] === "guild" &&
+    pathParts[2] === "join" &&
+    method === "POST"
+  ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const guildId = pathParts[1];
@@ -321,7 +328,11 @@ async function handler(req) {
     }
   }
 
-  if (pathParts[0] === "guild" && pathParts[2] === "leave" && method === "DELETE") {
+  if (
+    pathParts[0] === "guild" &&
+    pathParts[2] === "leave" &&
+    method === "DELETE"
+  ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const guildId = pathParts[1];
@@ -342,14 +353,14 @@ async function handler(req) {
     const { page } = await readJsonBody(req);
     try {
       const guildposts = await guilds.fetchGuildPosts(token, guildId, page);
-      if (!guild) return json({ error: true }, 400);
+      if (!guildposts) return json({ error: true }, 400);
       return json({ error: false, posts: guildposts });
     } catch (e) {
       log(e, "red");
       return json({ error: true }, 400);
     }
   }
-  
+
   if (pathParts[0] === "guild" && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
@@ -372,7 +383,12 @@ async function handler(req) {
     const channelId = pathParts[2];
     const { content } = await readJsonBody(req);
     try {
-      const guild = await guilds.postToGuild(token, guildId, content, channelId);
+      const guild = await guilds.postToGuild(
+        token,
+        guildId,
+        content,
+        channelId,
+      );
       if (!guild) return json({ error: true }, 400);
       return json({ error: false, post: guild });
     } catch (e) {
@@ -406,4 +422,3 @@ log("PROTOKOL | Server is running on http://localhost:7000", "magenta");
 
 // Initialize Socket.IO on separate port
 socket.initSocket();
-log("Socket.IO enabled on port 7001", "magenta");

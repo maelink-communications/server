@@ -59,7 +59,6 @@ export async function register(username, password) {
 }
 
 export async function login(username, password) {
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_users_urn ON users(username)`);
   const result = db
     .prepare(
       `SELECT password, username, uuid, pfp, bio, token FROM users WHERE username = ?`,

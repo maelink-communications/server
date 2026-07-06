@@ -71,8 +71,9 @@ export async function editPost(token, postId, content) {
     db.prepare(
       `UPDATE posts SET content = ?, ts = ? WHERE id = ? AND user_id = ?`
     ).run(content, Date.now(), normalizedPostId, id);
+    const { ts, author } = db.prepare(`SELECT ts, author FROM posts WHERE id = ?`).get(normalizedPostId);
     emitHomePostEdit(postId, content);
-    return true;
+    return { error: false, content, postId, postUuid, ts, author };
   } catch (e) {
     throw e;
   }

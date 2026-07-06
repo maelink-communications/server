@@ -116,7 +116,7 @@ Deno.test("API flow", async (t) => {
 
     const { res, data } = await request(
       "POST",
-      "/post",
+      "/home",
       {
         content: `Test post at ${new Date().toISOString()}`,
       },
@@ -140,7 +140,7 @@ Deno.test("API flow", async (t) => {
   await t.step("Like post", async () => {
     const { res, data } = await request(
       "PATCH",
-      "/post",
+      "/home",
       { like: true, postId: postId },
       { Authorization: `Bearer ${token}` },
     );
@@ -161,7 +161,7 @@ Deno.test("API flow", async (t) => {
     await t.step("Unlike post", async () => {
       const { res, data } = await request(
         "PATCH",
-        "/post",
+        "/home",
         { like: true, postId: postId },
         { Authorization: `Bearer ${token}` },
       );
@@ -171,13 +171,13 @@ Deno.test("API flow", async (t) => {
   }
 
   await t.step("Fetch posts page 1", async () => {
-    const { res, data } = await request("GET", "/home", undefined, { p: "1" });
+    const { res, data } = await request("GET", `/home?page=1`, undefined, undefined);
     console.log(`Fetch posts response data: ${JSON.stringify(data)}`);
     assertEquals(res.status, 200);
   });
 
   await t.step("Fetch posts page 2", async () => {
-    const { res, data } = await request("GET", "/home", undefined, { p: "2" });
+    const { res, data } = await request("GET", `/home?page=2`, undefined, undefined);
     console.log(`Fetch posts [page 2] response data: ${JSON.stringify(data)}`);
     assertEquals(res.status, 200);
   });
@@ -196,7 +196,7 @@ Deno.test("API flow", async (t) => {
 
     const { res } = await request(
       "PATCH",
-      "/post",
+      "/home",
       { postId: postId, content: "Updated content" },
       { Authorization: `Bearer ${token}` },
     );
@@ -282,7 +282,7 @@ Deno.test("API flow", async (t) => {
 
       const { res } = await request(
         "DELETE",
-        "/post",
+        "/home",
         { postId: postId },
         { Authorization: `Bearer ${token}` },
       );
@@ -305,7 +305,7 @@ Deno.test("API flow", async (t) => {
   });
 
   await t.step("Missing auth header", async () => {
-    const { res } = await request("POST", "/post", {
+    const { res } = await request("POST", "/home", {
       userId: "test-id",
       content: "This should fail",
     });

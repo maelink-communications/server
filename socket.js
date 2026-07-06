@@ -1,5 +1,4 @@
-// Socket.IO handler
-import { Server } from "socket.io";
+// WebSocket handler
 import { verifyToken } from "./keys.js";
 import { connectDB } from "./db.js";
 import { log } from "./logging.js";
@@ -7,113 +6,130 @@ import { log } from "./logging.js";
 const db = connectDB();
 log("Socket module loaded", "gray");
 
-let io;
-const userSockets = new Map();
+const userSockets = new Map(); // userId -> WebSocket
+const guildRooms = new Map(); // guildId -> Set<userId>
 
-export function initSocket(httpServer) {
-  io = new Server({
-    cors: { origin: "*" },
-    transports: ['websocket', 'polling']
-  });
+function broadcast(data) {
+  const msg = JSON.stringify(data);
+  for (const ws of userSockets.values()) {
+    if (ws.readyState === WebSocket.OPEN) ws.send(msg);
+  }
+}
 
-  io.listen(7001);
+function broadcastToGuild(guildId, data) {
+  const msg = JSON.stringify(data);
+  const members = guildRooms.get(guildId) ?? new Set();
+  for (const userId of members) {
+    const ws = userSockets.get(userId);
+    if (ws?.readyState === WebSocket.OPEN) ws.send(msg);
+  }
+}
 
-  io.on("connection", (socket) => {
-    log(`Socket connected: ${socket.id}`, "blue");
+export function initSocket() {
+  Deno.serve({ port: 7001 }, (req) => {
+    if (req.headers.get("upgrade") !== "websocket") {
+      return new Response("WebSocket only", { status: 426 });
+    }
 
-    socket.on("auth", async (token) => {
+    const { socket: ws, response } = Deno.upgradeWebSocket(req);
+
+    ws.onopen = () => log(`WebSocket connected`, "blue");
+
+    ws.onmessage = async (e) => {
+      let msg;
       try {
-        const payload = await verifyToken(token);
-        if (!payload) {
-          socket.emit("error", { message: "Invalid token" });
-          return;
+        msg = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+
+      if (msg.type === "auth") {
+        try {
+          const payload = await verifyToken(msg.token);
+          if (!payload) {
+            ws.send(
+              JSON.stringify({ type: "error", message: "Invalid token" }),
+            );
+            return;
+          }
+
+          ws.userId = payload.uuid;
+          ws.username = payload.username;
+          userSockets.set(payload.uuid, ws);
+
+          const guilds = db
+            .prepare(`SELECT uuid FROM guilds WHERE memberIDs LIKE ?`)
+            .all(`%${payload.uuid}%`);
+          for (const guild of guilds) joinGuildRoom(payload.uuid, guild.uuid);
+
+          ws.send(
+            JSON.stringify({
+              type: "authenticated",
+              username: payload.username,
+            }),
+          );
+          log(`User authenticated: ${payload.username}`, "green");
+        } catch (err) {
+          ws.send(
+            JSON.stringify({ type: "error", message: "Authentication failed" }),
+          );
+          log(`Auth failed: ${err}`, "red");
         }
-
-        socket.userId = payload.uuid;
-        socket.username = payload.username;
-        userSockets.set(payload.uuid, socket);
-
-        const guilds = db.prepare(
-          `SELECT uuid FROM guilds WHERE memberIDs LIKE ?`
-        ).all(`%${payload.uuid}%`);
-
-        guilds.forEach(guild => {
-          socket.join(`guild:${guild.uuid}`);
-        });
-
-        socket.emit("authenticated", { username: payload.username });
-        log(`User authenticated: ${payload.username}`, "green");
-      } catch (e) {
-        socket.emit("error", { message: "Authentication failed" });
-        log(`Auth failed: ${e}`, "red");
       }
-    });
+    };
 
-    socket.on("disconnect", () => {
-      if (socket.userId) {
-        userSockets.delete(socket.userId);
-        log(`User disconnected: ${socket.username}`, "yellow");
+    ws.onclose = () => {
+      if (ws.userId) {
+        userSockets.delete(ws.userId);
+        for (const members of guildRooms.values()) members.delete(ws.userId);
+        log(`User disconnected: ${ws.username}`, "yellow");
       }
-    });
+    };
+
+    return response;
   });
 
-  log("Socket.IO server running on port 7001", "magenta");
-  return io;
+  log("WebSocket server running on port 7001", "magenta");
 }
 
 export function emitHomePost(post) {
-  if (!io) return;
-  io.emit("home:post", post);
+  broadcast({ type: "home:post", ...post });
 }
-
 export function emitHomePostEdit(postId, content) {
-  if (!io) return;
-  io.emit("home:post:edit", { postId, content });
+  broadcast({ type: "home:post:edit", postId, content });
 }
-
 export function emitHomePostDelete(postId) {
-  if (!io) return;
-  io.emit("home:post:delete", { postId });
+  broadcast({ type: "home:post:delete", postId });
 }
 
 export function emitGuildPost(guildId, post) {
-  if (!io) return;
-  io.to(`guild:${guildId}`).emit("guild:post", { guildId, ...post });
+  broadcastToGuild(guildId, { type: "guild:post", guildId, ...post });
 }
-
 export function emitGuildUpdate(guildId, data) {
-  if (!io) return;
-  io.to(`guild:${guildId}`).emit("guild:update", { guildId, ...data });
+  broadcastToGuild(guildId, { type: "guild:update", guildId, ...data });
 }
-
 export function emitGuildChannelCreate(guildId, channel) {
-  if (!io) return;
-  io.to(`guild:${guildId}`).emit("guild:channel:create", { guildId, channel });
+  broadcastToGuild(guildId, { type: "guild:channel:create", guildId, channel });
 }
-
 export function emitGuildChannelDelete(guildId, channelId) {
-  if (!io) return;
-  io.to(`guild:${guildId}`).emit("guild:channel:delete", { guildId, channelId });
+  broadcastToGuild(guildId, {
+    type: "guild:channel:delete",
+    guildId,
+    channelId,
+  });
 }
 
 export function emitInboxMessage(userId, message) {
-  if (!io) return;
-  const socket = userSockets.get(userId);
-  if (socket) {
-    socket.emit("inbox:message", message);
-  }
+  const ws = userSockets.get(userId);
+  if (ws?.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify({ type: "inbox:message", ...message }));
 }
 
 export function joinGuildRoom(userId, guildId) {
-  const socket = userSockets.get(userId);
-  if (socket) {
-    socket.join(`guild:${guildId}`);
-  }
+  if (!guildRooms.has(guildId)) guildRooms.set(guildId, new Set());
+  guildRooms.get(guildId).add(userId);
 }
 
 export function leaveGuildRoom(userId, guildId) {
-  const socket = userSockets.get(userId);
-  if (socket) {
-    socket.leave(`guild:${guildId}`);
-  }
+  guildRooms.get(guildId)?.delete(userId);
 }

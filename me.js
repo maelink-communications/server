@@ -29,6 +29,27 @@ export async function fetchUser(token, userId) {
     console.log(e);
   }
 }
+export async function fetchUserPosts(token, userId, p) {
+  const offset = (p - 1) * 25;
+  if (!userId || !token) return false;
+  try {
+    const payload = await verifyToken(token);
+    const uuid = db
+      .prepare(
+        `SELECT uuid FROM users WHERE id = ?`,
+      )
+      .all(userId);
+    if (!payload) return false;
+    const posts = db
+      .prepare(
+        `SELECT *, CAST(ts AS REAL) as ts FROM posts WHERE user_id = ? ORDER BY id DESC LIMIT 25 OFFSET ?`,
+      )
+      .all(uuid, offset);
+    return posts;
+  } catch (e) {
+    console.log(e);
+  }
+}
 export async function editUser(token, username, pfp, bio) {
   if (!token) return false;
 
@@ -63,10 +84,7 @@ export async function editUser(token, username, pfp, bio) {
 
   values.push(payload.uuid);
 
-  db.exec(
-    `UPDATE users SET ${updates.join(", ")} WHERE uuid = ?`,
-    ...values
-  );
+  db.exec(`UPDATE users SET ${updates.join(", ")} WHERE uuid = ?`, ...values);
 
   return true;
 }
