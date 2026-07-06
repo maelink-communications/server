@@ -62,13 +62,15 @@ async function readJsonBody(req) {
 async function handler(req) {
   const url = new URL(req.url);
   const { pathname, method } = { pathname: url.pathname, method: req.method };
-
+  const pathParts = pathname.split("/").filter(Boolean);
+  log(`Incoming request: ${method} ${pathname}`, "blue");
+  log(`Path parts: ${pathParts.join(", ")}`, "blue");
   if (method === "OPTIONS") {
     return new Response(null);
   }
 
   if (
-    (pathname === "/register" || pathname === "//register") &&
+    (pathParts[0] === "register") &&
     method === "POST"
   ) {
     const { username, password } = await req.json();
@@ -77,14 +79,14 @@ async function handler(req) {
     return json({ error: false, user: reg });
   }
 
-  if ((pathname === "/login" || pathname === "//login") && method === "POST") {
+  if ((pathParts[0] === "login") && method === "POST") {
     const { username, password } = await req.json();
     const user = await auth.login(username, password);
     if (!user) return json({ error: true }, 401);
     return json({ error: false, user });
   }
 
-  if ((pathname === "/post" || pathname === "//post") && method === "POST") {
+  if ((pathParts[0] === "post") && method === "POST") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { content } = await req.json();
@@ -98,7 +100,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathname === "/home" || pathname === "//home") && method === "GET") {
+  if ((pathParts[0] === "home") && method === "GET") {
     const page = parseInt(req.headers.get("p") ?? "1");
     try {
       const posts = await home.fetchPosts(page);
@@ -109,7 +111,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathname === "/post" || pathname === "//post") && method === "PATCH") {
+  if ((pathParts[0] === "post") && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { postId, content, like } = await req.json();
@@ -129,7 +131,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathname === "/post" || pathname === "//post") && method === "DELETE") {
+  if ((pathParts[0] === "post") && method === "DELETE") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { postId } = await req.json();
@@ -144,12 +146,12 @@ async function handler(req) {
   }
 
   if (
-    (pathname.startsWith("/user/") || pathname.startsWith("//user/")) &&
+    (pathParts[0] === "user") &&
     method === "GET"
   ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
-    const userId = pathname.split("/")[2];
+    const userId = pathParts[1];
     try {
       const user = await me.fetchUser(token, userId);
       if (!user) return json({ error: true }, 400);
@@ -160,7 +162,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathname === "/user" || pathname === "//user") && method === "PATCH") {
+  if ((pathParts[0] === "user") && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { username, pfp, bio } = await req.json();
@@ -174,7 +176,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathname === "/inbox" || pathname === "//inbox") && method === "GET") {
+  if ((pathParts[0] === "inbox") && method === "GET") {
     const page = parseInt(req.headers.get("p") ?? "1");
     const token = getToken(req).toString();
     log(`Fetch messages called with page: ${page}, token: ${token}`, "blue");
@@ -190,7 +192,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathname === "/inbox" || pathname === "//inbox") && method === "PATCH") {
+  if ((pathParts[0] === "inbox") && method === "PATCH") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { message_id } = await req.json();
@@ -204,7 +206,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathname === "/guilds" || pathname === "//guilds") && method === "GET") {
+  if ((pathParts[0] === "guilds") && method === "GET") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { page } = await readJsonBody(req);
@@ -218,7 +220,7 @@ async function handler(req) {
     }
   }
 
-  if ((pathname === "/guilds" || pathname === "//guilds") && method === "POST") {
+  if ((pathParts[0] === "guilds") && method === "POST") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { name, description } = await readJsonBody(req);
@@ -232,7 +234,6 @@ async function handler(req) {
     }
   }
 
-  const pathParts = pathname.split("/").filter(Boolean);
   const isGuildChannelsRoute = pathParts[0] === "guild" && pathParts[1] === "channels";
 
   if (isGuildChannelsRoute && method === "GET") {
@@ -397,7 +398,7 @@ async function handler(req) {
   return json({ error: true }, 404);
 }
 
-const server = Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req) => {
+Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req) => {
   return withCors(await handler(req));
 });
 

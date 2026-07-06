@@ -6,6 +6,12 @@ import { emitHomePost, emitHomePostEdit, emitHomePostDelete } from "./socket.js"
 log("Home module loaded", "gray");
 const db = connectDB();
 
+function normalizeId(value) {
+  if (Array.isArray(value)) return value[0] ?? null;
+  if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+  return value ?? null;
+}
+
 async function resolveUser(token) {
   const payload = await verifyToken(token);
   const user = db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
@@ -31,7 +37,8 @@ export async function createPost(token, content) {
     db.prepare(
       `INSERT INTO posts (uuid, user_id, content, ts, author) VALUES (?, ?, ?, ?, ?)`
     ).run(postUuid, id, content, ts, author);
-    const postId = db.prepare(`SELECT id FROM posts WHERE uuid = ?`).value(postUuid);
+    const createdPost = db.prepare(`SELECT id FROM posts WHERE uuid = ?`).get(postUuid);
+    const postId = normalizeId(createdPost?.id ?? null);
     const post = { error: false, content, postId, postUuid, ts, author };
     emitHomePost(post);
     return post;
@@ -57,11 +64,13 @@ export async function editPost(token, postId, content) {
   }
   try {
     const id = await resolveUser(token);
-    const postUuid = db.prepare(`SELECT uuid FROM posts WHERE id = ?`).value(postId);
+    const normalizedPostId = normalizeId(postId);
+    if (!normalizedPostId) return false;
+    const postUuid = db.prepare(`SELECT uuid FROM posts WHERE id = ?`).value(normalizedPostId);
     if (!postUuid) return false;
     db.prepare(
       `UPDATE posts SET content = ?, ts = ? WHERE id = ? AND user_id = ?`
-    ).run(content, Date.now(), postId, id);
+    ).run(content, Date.now(), normalizedPostId, id);
     emitHomePostEdit(postId, content);
     return true;
   } catch (e) {
@@ -77,9 +86,11 @@ export async function destroyPost(token, postId) {
   }
   try {
     const id = await resolveUser(token);
-    const postUuid = db.prepare(`SELECT uuid FROM posts WHERE id = ?`).value(postId);
+    const normalizedPostId = normalizeId(postId);
+    if (!normalizedPostId) return false;
+    const postUuid = db.prepare(`SELECT uuid FROM posts WHERE id = ?`).value(normalizedPostId);
     if (!postUuid) return false;
-    db.prepare(`DELETE FROM posts WHERE id = ? AND user_id = ?`).run(postId, id);
+    db.prepare(`DELETE FROM posts WHERE id = ? AND user_id = ?`).run(normalizedPostId, id);
     emitHomePostDelete(postId);
     return true;
   } catch (e) {
@@ -95,24 +106,27 @@ export async function postLikeSet(token, postId) {
   }
   try {
     const id = await resolveUser(token);
-    const post = db.prepare(`SELECT uuid, users_liked FROM posts WHERE id = ?`).get(postId);
+    const normalizedPostId = normalizeId(postId);
+    if (!normalizedPostId) return false;
+    const post = db.prepare(`SELECT uuid, users_liked FROM posts WHERE id = ?`).get(normalizedPostId);
     if (!post) {
-      log(`Post ${postId} not found`, "red");
+      log(`Post ${normalizedPostId} not found`, "red");
       return false;
     }
     const liked = JSON.parse(post.users_liked || '[]');
     if (!liked.includes(id)) {
       liked.push(id);
       db.prepare(`UPDATE posts SET users_liked = ?, likes = likes + 1 WHERE id = ?`)
-        .run(JSON.stringify(liked), postId);
+        .run(JSON.stringify(liked), normalizedPostId);
     } else {
       const index = liked.indexOf(id);
       if (index > -1) {
         liked.splice(index, 1);
         db.prepare(`UPDATE posts SET users_liked = ?, likes = likes - 1 WHERE id = ?`)
-          .run(JSON.stringify(liked), postId);
+          .run(JSON.stringify(liked), normalizedPostId);
       }
     }
+    log(`Post ${normalizedPostId} like status updated for user ${id}`, "green");
     return true;
   } catch (e) {
     throw e;
