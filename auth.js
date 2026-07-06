@@ -4,6 +4,7 @@ import * as jose from "@panva/jose";
 import { hash, verify } from "@felix/argon2";
 import { sendMessage } from "./inbox.js";
 import { log } from "./logging.js";
+import { verifyToken } from "./keys.js";
 import { getPrivateKey } from "./keys.js";
 const db = connectDB();
 log("Auth module loaded", "gray");
@@ -59,6 +60,7 @@ export async function register(username, password) {
 }
 
 export async function login(username, password) {
+  if (!username || !password) return false;
   const result = db
     .prepare(
       `SELECT password, username, uuid, pfp, bio, token FROM users WHERE username = ?`,
@@ -81,6 +83,29 @@ export async function login(username, password) {
       pfp: result[0].pfp,
       bio: result[0].bio,
       token: tokenNew,
+    };
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
+}
+
+export async function loginToken(token) {
+  if (!token) return false;
+  const isValid = await verifyToken(token);
+  if (!isValid) return false;
+  const result = db
+    .prepare(
+      `SELECT token, username, uuid, pfp, bio FROM users WHERE token = ?`,
+    )
+    .all(token);
+  if (result.length === 0) return false;
+  try {
+    return {
+      uuid: result[0].uuid,
+      username: result[0].username,
+      pfp: result[0].pfp,
+      bio: result[0].bio,
     };
   } catch (e) {
     console.error(e);

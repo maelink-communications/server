@@ -111,6 +111,18 @@ Deno.test("API flow", async (t) => {
     userId = data.user.uuid;
   });
 
+  await t.step("Login user with token", async () => {
+    const { res, data } = await request("POST", "/login", {
+      token
+    });
+    console.log("Data from login request: ", data);
+
+    assertEquals(res.status, 200);
+    assert(data && data.user);
+
+    userId = data.user.uuid;
+  });
+
   await t.step("Create post", async () => {
     if (!token || !userId) return;
 

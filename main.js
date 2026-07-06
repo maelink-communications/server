@@ -77,8 +77,13 @@ async function handler(req) {
   }
 
   if (pathParts[0] === "login" && method === "POST") {
-    const { username, password } = await req.json();
-    const user = await auth.login(username, password);
+    const { username, password, token } = await req.json();
+    let user;
+    if (token) {
+      user = await auth.loginToken(token);
+    } else {
+      user = await auth.login(username, password);
+    }
     if (!user) return json({ error: true }, 401);
     return json({ error: false, user });
   }
