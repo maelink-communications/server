@@ -1,6 +1,7 @@
 import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
+import { emitInboxMessage } from "./socket.js";
 log("Inbox module loaded", "gray");
 const db = connectDB();
 
@@ -16,10 +17,12 @@ export async function sendMessage(recipient, content, senderDisplay) {
   const recip = stmt.all(recipient)[0];
   if (!recip) return { error: "Recipient not found" };
   const messageId = crypto.randomUUID();
+  const ts = Date.now();
   db.exec(
     `INSERT INTO inbox (id, user_id, sender_id, content, ts, read) VALUES (?, ?, ?, ?, ?, 0)`,
-    [messageId, recip.uuid, senderDisplay, content, Date.now()],
+    [messageId, recip.uuid, senderDisplay, content, ts],
   );
+  emitInboxMessage(recip.uuid, { id: messageId, sender_id: senderDisplay, content, ts, read: 0 });
   return true;
 }
 
