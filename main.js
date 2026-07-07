@@ -9,6 +9,7 @@ import * as db from "./db.js";
 import { log } from "./logging.js";
 import * as keys from "./keys.js";
 import * as socket from "./socket.js";
+import * as version from "./version.js";
 
 await db.initDB();
 await keys.initKeys();
@@ -212,7 +213,7 @@ async function handler(req) {
   if (pathParts[0] === "guilds" && method === "GET") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
-    const { page } = await readJsonBody(req);
+    const { page } = parseInt(url.searchParams.get("page") || "1");
     try {
       const fetchedGuilds = await guilds.fetchGuilds(token, page);
       if (!fetchedGuilds) return json({ error: true }, 400);
@@ -255,10 +256,11 @@ async function handler(req) {
 
   if (isGuildChannelsRoute && method === "GET") {
     const token = getToken(req);
+    const page = parseInt(url.searchParams.get("page") || "1");
     if (!token) return json({ error: true }, 401);
     const guildId = pathParts[2];
     try {
-      const channels = await guilds.fetchGuildChannels(token, guildId);
+      const channels = await guilds.fetchGuildChannels(token, guildId, page);
       if (!channels) return json({ error: true }, 400);
       return json({ error: false, channels });
     } catch (e) {
@@ -429,6 +431,16 @@ async function handler(req) {
     }
   }
 
+  if (pathParts[0] === "version" && method === "GET") {
+    try {
+      const versioning = await version.getVersion();
+      return json({ error: false, apiVersion: versioning });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
   return json({ error: true }, 404);
 }
 
@@ -438,5 +450,5 @@ Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req) => {
 
 log("PROTOKOL | Server is running on http://localhost:7000", "magenta");
 
-// Initialize Socket.IO on separate port
+// Initialize WS on separate port
 socket.initSocket();

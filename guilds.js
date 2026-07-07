@@ -249,10 +249,9 @@ export async function fetchGuildChannels(token, guildId) {
   const guild = db.prepare(`SELECT memberIDs, channels FROM guilds WHERE uuid = ?`).get(guildId);
   if (!isGuildMember(guild, payload.uuid)) return false;
   const channels = parseJsonArray(guild?.channels ?? "[]");
-  const offset = 0;
   const posts = db.prepare(
-    `SELECT *, CAST(ts AS REAL) as ts FROM guild_posts WHERE guildID = ? ORDER BY id DESC LIMIT 25 OFFSET ?`
-  ).all(guildId, offset);
+    `SELECT *, CAST(ts AS REAL) as ts FROM guild_posts WHERE guildID = ? ORDER BY id DESC`
+  ).all(guildId);
   return channels.map(ch => ({
     ...ch,
     posts: posts.filter(p => p.channelId === ch.id)
