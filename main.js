@@ -448,13 +448,19 @@ async function handler(req) {
   }
 
   if (pathParts.length === 0 && method === "GET") {
-    if (pathParts.length === 0 && method === "GET") {
-      const serverName = Deno.env.get("SERVER_NAME") || "maelink server";
-      const serverDescription = Deno.env.get("SERVER_DESCRIPTION") || "No description given for this server.";
-      const escapedDescription = serverDescription.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-      const versioning = await version.getVersion();
-      const registered = db.prepare("SELECT COUNT(*) FROM users");
-      const html = `
+    const serverName = Deno.env.get("SERVER_NAME") || "maelink server";
+    const serverDescription =
+      Deno.env.get("SERVER_DESCRIPTION") ||
+      "No description given for this server.";
+    const escapedDescription = serverDescription
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;");
+    const versioning = await version.getVersion();
+    const connected = socket.getConnectedSockets();
+    const db2 = db.connectDB();
+    const registered =
+      db2.prepare("SELECT COUNT(*) as count FROM users").get()?.count ?? 0;
+    const html = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -562,6 +568,10 @@ async function handler(req) {
             <span class="info-value">Online</span>
           </div>
           <div class="info-item">
+            <span class="info-label">Connected users: </span>
+            <span class="info-value">${connected}</span>
+          </div>
+          <div class="info-item">
             <span class="info-label">Registered users: </span>
             <span class="info-value">${registered}</span>
           </div>
@@ -579,21 +589,25 @@ async function handler(req) {
     </html>
   `;
 
-      return new Response(html, {
-        status: 200,
-        headers: {
-          "Content-Type": "text/html",
-          ...CORS_HEADERS,
-        },
-      });
-    }
+    return new Response(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html",
+        ...CORS_HEADERS,
+      },
+    });
   }
 
   return json({ error: true }, 404);
 }
 
 Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req) => {
-  return withCors(await handler(req));
+  try {
+    return withCors(await handler(req));
+  } catch (e) {
+    console.error("Unhandled server error:", e);
+    return new Response(String(e), { status: 500 });
+  }
 });
 
 log("PROTOKOL | Server is running on http://localhost:7000", "magenta");
