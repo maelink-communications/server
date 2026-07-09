@@ -461,6 +461,11 @@ async function handler(req) {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>${serverName}</title>
+      <meta property="og:title" content="${serverName}">
+      <meta property="og:description" content="${serverDescription}">
+      <meta property="og:image" content="https://github.com/maelink-communications/maelink-communications.github.io/blob/main/biglogo.png?raw=true">
+      <meta property="og:type" content="website">
+      <meta name="theme-color" content="#ff5757">
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
       <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:ital,wght@0,100..900;1,100..900&family=Rethink+Sans:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
