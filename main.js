@@ -452,6 +452,7 @@ async function handler(req) {
       const serverName = Deno.env.get("SERVER_NAME") || "maelink server";
       const serverDescription =
         Deno.env.get("SERVER_DESCRIPTION") || "No description given for this server.";
+      const escapedDescription = serverDescription.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
       const versioning = await version.getVersion();
       const connected = await socket.getConnectedSockets();
       const html = `
@@ -462,7 +463,7 @@ async function handler(req) {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>${serverName}</title>
       <meta property="og:title" content="${serverName}">
-      <meta property="og:description" content="${serverDescription}">
+      <meta property="og:description" content="${escapedDescription}">
       <meta property="og:image" content="https://github.com/maelink-communications/maelink-communications.github.io/blob/main/biglogo.png?raw=true">
       <meta property="og:type" content="website">
       <meta name="theme-color" content="#ff5757">
@@ -550,7 +551,7 @@ async function handler(req) {
     <img src="https://github.com/maelink-communications/maelink-communications.github.io/blob/main/biglogo.png?raw=true" alt="maelink" style="width:360px;height:auto;margin-bottom:24px;">
       <div class="container">
         <h1>${serverName}</h1>
-        <p class="description">${serverDescription}</p>
+        <p class="description">${escapedDescription}</p>
         
         <div class="info-box">
           <div class="info-item">
