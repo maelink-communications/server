@@ -24,13 +24,12 @@ export function initDB() {
     uuid TEXT UNIQUE,
     content TEXT,
     ts INTEGER,
+    client TEXT NOT NULL,
     likes INTEGER DEFAULT 0,
     users_liked TEXT DEFAULT '[]',
     reply_count INTEGER DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users(uuid) ON DELETE SET NULL
 );
-`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_posts_uuid ON posts(uuid)
 `);
   db.exec(`CREATE TABLE IF NOT EXISTS replies (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,6 +127,10 @@ export function initDB() {
   );
   db.exec(
     `CREATE INDEX IF NOT EXISTS idx_users_urn ON users(username)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_posts_uuid ON posts(uuid)
 `,
   );
 

@@ -26,7 +26,7 @@ export async function resolveUsername(token) {
   return user[0];
 }
 
-export async function createPost(token, content) {
+export async function createPost(token, content, clientId) {
   if (!token || !content) return false;
   log(`createPost called with: ${token}, ${content}`);
   try {
@@ -35,11 +35,11 @@ export async function createPost(token, content) {
     const ts = Date.now();
     const postUuid = crypto.randomUUID();
     db.prepare(
-      `INSERT INTO posts (uuid, user_id, content, ts, author) VALUES (?, ?, ?, ?, ?)`
-    ).run(postUuid, id, content, ts, author);
+      `INSERT INTO posts (uuid, user_id, content, ts, author, client) VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(postUuid, id, content, ts, author, clientId || "unknown");
     const createdPost = db.prepare(`SELECT id FROM posts WHERE uuid = ?`).get(postUuid);
     const postId = normalizeId(createdPost?.id ?? null);
-    const post = { error: false, content, postId, postUuid, ts, author };
+    const post = { error: false, content, postId, postUuid, ts, author, clientId };
     emitHomePost(post);
     return post;
   } catch (e) {

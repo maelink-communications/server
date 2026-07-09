@@ -92,9 +92,9 @@ async function handler(req) {
   if (pathParts[0] === "home" && method === "POST") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
-    const { content } = await req.json();
+    const { content, clientId } = await req.json();
     try {
-      const post = await home.createPost(token, content);
+      const post = await home.createPost(token, content, clientId);
       if (!post) return json({ error: true }, 400);
       return json(post);
     } catch (e) {
@@ -156,9 +156,11 @@ async function handler(req) {
     let userPosts = [];
     try {
       const user = await me.fetchUser(token, userId);
-      if (!user) { return json({ error: true }, 400) } else {
+      if (!user) {
+        return json({ error: true }, 400);
+      } else {
         userPosts = await me.fetchUserPosts(token, userId, p);
-      };
+      }
       return json({ error: false, user, userPosts });
     } catch (e) {
       log(e, "red");
@@ -224,7 +226,11 @@ async function handler(req) {
     }
   }
 
-  if (pathParts[0] === "guilds" && pathParts[1] === "subscribed" && method === "GET") {
+  if (
+    pathParts[0] === "guilds" &&
+    pathParts[1] === "subscribed" &&
+    method === "GET"
+  ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     try {
@@ -442,7 +448,135 @@ async function handler(req) {
   }
 
   if (pathParts.length === 0 && method === "GET") {
-    return new Response("Hello! This is a server URL. This means you have to plug this into a client to connect to maelink. Ask the server administrator(s) for help.");
+    if (pathParts.length === 0 && method === "GET") {
+      const serverName = Deno.env.get("SERVER_NAME") || "maelink server";
+      const serverDescription =
+        Deno.env.get("SERVER_DESCRIPTION") || "No description given for this server.";
+      const versioning = await version.getVersion();
+      const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${serverName}</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:ital,wght@0,100..900;1,100..900&family=Rethink+Sans:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        body {
+          font-family: 'Rethink Sans';
+          background: #181818;
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        .container {
+          max-width: 600px;
+          width: 100%;
+          padding: 40px;
+          text-align: center;
+        }
+        h1 {
+          color: #ffffff;
+          font-size: 2.5em;
+          margin-bottom: 10px;
+        }
+        .description {
+          color: #c0c0c0;
+          font-size: 1.1em;
+          margin-bottom: 30px;
+          line-height: 1.6;
+        }
+        .info-box {
+          background: #3b3b3b;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+        }
+        .info-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px 0;
+          border-bottom: 1px solid #e0e0e0;
+        }
+        .info-item:last-child {
+          border-bottom: none;
+        }
+        .info-label {
+          font-weight: 600;
+          color: #ffffff;
+        }
+        .info-value {
+          color: #ea6666;
+          font-family: 'Geist Mono', monospace;
+        }
+        .button {
+          display: inline-block;
+          background: #444444;
+          color: white;
+          text-decoration: none;
+          padding: 15px 30px;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 1.1em;
+          margin-top: 20px;
+        }
+        .button:hover {
+          background: #555555;
+        }
+        .footer {
+          margin-top: 30px;
+          color: #999;
+          font-size: 0.9em;
+        }
+      </style>
+    </head>
+    <body>
+    <img src="https://github.com/maelink-communications/maelink-communications.github.io/blob/main/biglogo.png?raw=true" alt="maelink" style="width:360px;height:auto;margin-bottom:24px;">
+      <div class="container">
+        <h1>${serverName}</h1>
+        <p class="description">${serverDescription}</p>
+        
+        <div class="info-box">
+          <div class="info-item">
+            <span class="info-label">Server version: </span>
+            <span class="info-value">${versioning}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Status</span>
+            <span class="info-value">Online</span>
+          </div>
+        </div>
+        
+        <a href="https://github.com/maelink-communications/server/blob/protokol/CLIENTS.md" class="button" target="_blank">
+          View compatible clients here.
+        </a>
+        
+        <p class="footer">
+          This is a maelink server. You need a compatible client to connect.
+        </p>
+      </div>
+    </body>
+    </html>
+  `;
+
+      return new Response(html, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+          ...CORS_HEADERS,
+        },
+      });
+    }
   }
 
   return json({ error: true }, 404);
