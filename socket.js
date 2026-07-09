@@ -133,3 +133,7 @@ export function joinGuildRoom(userId, guildId) {
 export function leaveGuildRoom(userId, guildId) {
   guildRooms.get(guildId)?.delete(userId);
 }
+
+export function getConnectedSockets() {
+  return userSockets.size;
+}

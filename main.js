@@ -453,6 +453,7 @@ async function handler(req) {
       const serverDescription =
         Deno.env.get("SERVER_DESCRIPTION") || "No description given for this server.";
       const versioning = await version.getVersion();
+      const connected = await socket.getConnectedSockets();
       const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -552,8 +553,12 @@ async function handler(req) {
             <span class="info-value">${versioning}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Status</span>
+            <span class="info-label">Status: </span>
             <span class="info-value">Online</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Connected users: </span>
+            <span class="info-value">${connected}</span>
           </div>
         </div>
         
