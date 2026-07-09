@@ -23,7 +23,7 @@ GitHub: <https://github.com/Kabezz/waechain-maelink><br>
 
 ### Aquatic
 By: mybearworld<br>
-*Client capabilities are not known at the moment. A screenshot posted of the client has suggested that it supports minimal inbox and Home capabilities.*
+*Client capabilities are not known at the moment. A screenshot posted of the client has suggested that it supports minimal inbox and Home capabilities.*<br>
 **Verified to work on**: <0.3.1b
 ### "Promenade"
 By: daydreamyy (+ contributors.)<br>
