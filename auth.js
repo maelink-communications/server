@@ -9,12 +9,32 @@ import { getPrivateKey } from "./keys.js";
 const db = connectDB();
 log("Auth module loaded", "gray");
 
-async function signToken(uuid, username) {
-  return new jose.SignJWT({ uuid, username })
+async function signToken(uuid, username, expiresIn, type) {
+  return new jose.SignJWT({ uuid, username, type })
     .setProtectedHeader({ alg: "ES256" })
     .setIssuedAt()
-    .setExpirationTime("2h")
+    .setExpirationTime(expiresIn)
     .sign(getPrivateKey());
+}
+
+async function signAccessToken(uuid, username) {
+  return signToken(uuid, username, "2h", "access");
+}
+
+async function signRefreshToken(uuid, username) {
+  return signToken(uuid, username, "30d", "refresh");
+}
+
+function buildAuthResponse(userRow, accessToken, refreshToken) {
+  return {
+    uuid: userRow.uuid,
+    username: userRow.username,
+    pfp: userRow.pfp,
+    bio: userRow.bio,
+    token: accessToken,
+    accessToken,
+    refreshToken,
+  };
 }
 
 export async function register(username, password) {
@@ -34,10 +54,11 @@ export async function register(username, password) {
     throw new Error("password is too short, must be 6+ characters");
   }
   try {
-    const token = await signToken(uuid, username);
+    const accessToken = await signAccessToken(uuid, username);
+    const refreshToken = await signRefreshToken(uuid, username);
     db.exec(
-      `INSERT INTO users (uuid, username, password, pfp, bio, token) VALUES (?, ?, ?, ?, ?, ?)`,
-      [uuid, username, hashString, null, null, token],
+      `INSERT INTO users (uuid, username, password, pfp, bio, token, refresh_token) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [uuid, username, hashString, null, null, accessToken, refreshToken],
     );
     if (Deno.env.get("SYSTEM_MESSAGE")) {
       await sendMessage(
@@ -52,7 +73,7 @@ export async function register(username, password) {
         "System",
       );
     }
-    return { error: false, username, token, uuid };
+    return { error: false, username, token: accessToken, accessToken, refreshToken, uuid };
   } catch (e) {
     console.error(e);
     return false;
@@ -63,7 +84,7 @@ export async function login(username, password) {
   if (!username || !password) return false;
   const result = db
     .prepare(
-      `SELECT password, username, uuid, pfp, bio, token FROM users WHERE username = ?`,
+      `SELECT password, username, uuid, pfp, bio, token, refresh_token FROM users WHERE username = ?`,
     )
     .all(username);
   if (result.length === 0) return false;
@@ -71,19 +92,15 @@ export async function login(username, password) {
     const isValid = await verify(result[0].password, password);
     if (!isValid) return false;
 
-    const tokenNew = await signToken(result[0].uuid, result[0].username);
-    db.exec(`UPDATE users SET token = ? WHERE username = ?`, [
-      tokenNew,
+    const accessToken = await signAccessToken(result[0].uuid, result[0].username);
+    const refreshToken = await signRefreshToken(result[0].uuid, result[0].username);
+    db.exec(`UPDATE users SET token = ?, refresh_token = ? WHERE username = ?`, [
+      accessToken,
+      refreshToken,
       username,
     ]);
 
-    return {
-      uuid: result[0].uuid,
-      username: result[0].username,
-      pfp: result[0].pfp,
-      bio: result[0].bio,
-      token: tokenNew,
-    };
+    return buildAuthResponse(result[0], accessToken, refreshToken);
   } catch (e) {
     console.error(e);
     return false;
@@ -96,17 +113,19 @@ export async function loginToken(token) {
   if (!isValid) return false;
   const result = db
     .prepare(
-      `SELECT token, username, uuid, pfp, bio FROM users WHERE token = ?`,
+      `SELECT token, refresh_token, username, uuid, pfp, bio FROM users WHERE token = ? OR refresh_token = ?`,
     )
-    .all(token);
+    .all(token, token);
   if (result.length === 0) return false;
   try {
-    return {
-      uuid: result[0].uuid,
-      username: result[0].username,
-      pfp: result[0].pfp,
-      bio: result[0].bio,
-    };
+    const accessToken = await signAccessToken(result[0].uuid, result[0].username);
+    const refreshToken = await signRefreshToken(result[0].uuid, result[0].username);
+    db.exec(`UPDATE users SET token = ?, refresh_token = ? WHERE uuid = ?`, [
+      accessToken,
+      refreshToken,
+      result[0].uuid,
+    ]);
+    return buildAuthResponse(result[0], accessToken, refreshToken);
   } catch (e) {
     console.error(e);
     return false;

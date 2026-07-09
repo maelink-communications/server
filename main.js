@@ -22,20 +22,42 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "content-type, Authorization, p, x-server-id",
 };
 
-function json(data, status = 200) {
+function json(data, status = 200, cookies = []) {
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    ...CORS_HEADERS,
+  });
+  for (const cookie of cookies) {
+    headers.append("Set-Cookie", cookie);
+  }
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      ...CORS_HEADERS,
-    },
+    headers,
   });
 }
 
+function buildCookie(name, value, maxAge) {
+  return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+}
+
+function buildAuthCookies(accessToken, refreshToken) {
+  return [
+    buildCookie("accessToken", accessToken, 60 * 60 * 2),
+    buildCookie("refreshToken", refreshToken, 60 * 60 * 24 * 30),
+  ];
+}
+
 function withCors(response) {
-  const headers = new Headers(response.headers);
+  const headers = new Headers();
   for (const [k, v] of Object.entries(CORS_HEADERS)) {
     headers.set(k, v);
+  }
+  for (const [k, v] of response.headers.entries()) {
+    if (k.toLowerCase() === "set-cookie") {
+      headers.append(k, v);
+    } else {
+      headers.set(k, v);
+    }
   }
   return new Response(response.body, { status: response.status, headers });
 }
@@ -71,14 +93,26 @@ async function handler(req) {
   }
 
   if (pathParts[0] === "register" && method === "POST") {
-    const { username, password } = await req.json();
+    const body = await readJsonBody(req);
+    const { username, password, setCookie = false } = body;
     const reg = await auth.register(username, password);
     if (!reg) return json({ error: true }, 400);
-    return json({ error: false, user: reg });
+    return json(
+      {
+        error: false,
+        user: reg,
+        token: reg.accessToken,
+        accessToken: reg.accessToken,
+        refreshToken: reg.refreshToken,
+      },
+      200,
+      setCookie ? buildAuthCookies(reg.accessToken, reg.refreshToken) : [],
+    );
   }
 
   if (pathParts[0] === "login" && method === "POST") {
-    const { username, password, token } = await req.json();
+    const body = await readJsonBody(req);
+    const { username, password, token, setCookie = false } = body;
     let user;
     if (token) {
       user = await auth.loginToken(token);
@@ -86,7 +120,20 @@ async function handler(req) {
       user = await auth.login(username, password);
     }
     if (!user) return json({ error: true }, 401);
-    return json({ error: false, user });
+    return json(
+      {
+        error: false,
+        user: {
+          ...user,
+          token: user.accessToken,
+        },
+        token: user.accessToken,
+        accessToken: user.accessToken,
+        refreshToken: user.refreshToken,
+      },
+      200,
+      setCookie ? buildAuthCookies(user.accessToken, user.refreshToken) : [],
+    );
   }
 
   if (pathParts[0] === "home" && method === "POST") {
@@ -318,11 +365,36 @@ async function handler(req) {
     }
   }
 
-  if (
-    pathParts[0] === "guild" &&
-    pathParts[2] === "members" &&
-    method === "GET"
-  ) {
+  if (pathParts[0] === "guild" && pathParts[2] === "roles" && method === "GET") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const guildId = pathParts[1];
+    try {
+      const roles = await guilds.listGuildRoles(token, guildId);
+      if (!roles) return json({ error: true }, 400);
+      return json({ error: false, roles });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  if (pathParts[0] === "guild" && pathParts[2] === "roles" && method === "POST" && !pathParts[3]) {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const guildId = pathParts[1];
+    const { name, color, permissions } = await readJsonBody(req);
+    try {
+      const role = await guilds.createGuildRole(token, guildId, name, color, permissions);
+      if (!role) return json({ error: true }, 400);
+      return json({ error: false, role });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  if (pathParts[0] === "guild" && pathParts[2] === "members" && method === "GET") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const guildId = pathParts[1];
@@ -330,6 +402,82 @@ async function handler(req) {
       const members = await guilds.fetchGuildMembers(token, guildId);
       if (!members) return json({ error: true }, 400);
       return json({ error: false, members });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  if (pathParts[0] === "guild" && pathParts[2] === "roles" && pathParts[4] === "members" && method === "POST") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const guildId = pathParts[1];
+    const roleId = pathParts[3];
+    const { userId } = await readJsonBody(req);
+    try {
+      const assigned = await guilds.assignGuildRole(token, guildId, roleId, userId);
+      if (!assigned) return json({ error: true }, 400);
+      return json({ error: false, assigned: true });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  if (pathParts[0] === "guild" && pathParts[2] === "channel-permissions" && method === "PATCH") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const guildId = pathParts[1];
+    const { channelId, roleId, view, send, history } = await readJsonBody(req);
+    try {
+      const updated = await guilds.setChannelPermissions(token, guildId, channelId, roleId, { view, send, history });
+      if (!updated) return json({ error: true }, 400);
+      return json({ error: false, updated: true });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  if (pathParts[0] === "guild" && pathParts[2] === "moderation" && pathParts[3] === "delete-post" && method === "POST") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const guildId = pathParts[1];
+    const { postId } = await readJsonBody(req);
+    try {
+      const deleted = await guilds.deleteGuildPost(token, guildId, postId);
+      if (!deleted) return json({ error: true }, 400);
+      return json({ error: false, deleted: true });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  if (pathParts[0] === "guild" && pathParts[2] === "moderation" && pathParts[3] === "kick" && method === "POST") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const guildId = pathParts[1];
+    const { userId, reason } = await readJsonBody(req);
+    try {
+      const kicked = await guilds.moderateKick(token, guildId, userId, reason);
+      if (!kicked) return json({ error: true }, 400);
+      return json({ error: false, kicked: true });
+    } catch (e) {
+      log(e, "red");
+      return json({ error: true }, 400);
+    }
+  }
+
+  if (pathParts[0] === "guild" && pathParts[2] === "moderation" && pathParts[3] === "ban" && method === "POST") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const guildId = pathParts[1];
+    const { userId, durationSeconds, reason } = await readJsonBody(req);
+    try {
+      const banned = await guilds.moderateBan(token, guildId, userId, durationSeconds, reason);
+      if (!banned) return json({ error: true }, 400);
+      return json({ error: false, banned: true });
     } catch (e) {
       log(e, "red");
       return json({ error: true }, 400);
@@ -376,7 +524,7 @@ async function handler(req) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const guildId = pathParts[1];
-    const { page } = await readJsonBody(req);
+    const page = parseInt(url.searchParams.get("page") || "1");
     try {
       const guildposts = await guilds.fetchGuildPosts(token, guildId, page);
       if (!guildposts) return json({ error: true }, 400);

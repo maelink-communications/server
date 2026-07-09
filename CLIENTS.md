@@ -23,11 +23,11 @@ GitHub: <https://github.com/Kabezz/waechain-maelink><br>
 
 ### Aquatic
 By: mybearworld<br>
-*Client capabilities are not known at the moment. A screenshot has suggested that the client supports minimal inbox and Home capabilities.*
+*Client capabilities are not known at the moment. A screenshot posted of the client has suggested that it supports minimal inbox and Home capabilities.*
 **Verified to work on**: <0.3.1b
 ### "Promenade"
 By: daydreamyy (+ contributors.)<br>
 What you can do: Login, register, see Home and Inbox, make Home posts.<br>
 *No proper URL to this version of the client has been given as of now.*<br>
 *A version of this client made for a COMPLETELY DIFFERENT SERVER VERSION can be seen [here](<https://github.com/maelink-communications/client/>).*<br>
-**Verified to work on**: 0.3.3b
+**Verified to work on**: 0.4.0 *\[LATEST\]*

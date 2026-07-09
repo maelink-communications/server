@@ -1,169 +1,267 @@
-# API for v0.3.3b
+# API for v0.4.0
 
-*Things here will be updated frequently\*.*
+_Things here will be updated frequently\*._
 
-NOTE: *Tokens expire 2 hours after they are first issued!*
+NOTE: _Access tokens expire 2 hours after they are first issued!<br>Refresh tokens expire after 30 days! STORE THEM SECURELY!_
+
+## Response conventions
+
+- Successful requests typically return HTTP 200 with a JSON body containing `error: false`.
+- Authentication failures return HTTP 401 with `{ "error": true }`.
+- Bad requests, invalid input, or missing resources typically return HTTP 400 with `{ "error": true }`.
+- Not found routes return HTTP 404 with `{ "error": true }`.
+
+The examples below show the most common success payloads and the standard error payloads for each endpoint.
 
 ## AUTH / INIT
 
 `GET` from `/version`<br>
 HEADERS: none<br>
 BODY: none<br>
-RETURN: `{ error: false, apiVersion: "<API VERSION>" }`
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "apiVersion": "<API VERSION>" }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/register`:<br>
 HEADERS: none<br>
 BODY: (JSON) `username, password` keys expected<br>
-RETURN: Your user data and a token. Can only be used once per username.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "user": { "uuid": "<UUID>", "username": "<USERNAME>", "pfp": null, "bio": null, "token": "<ACCESS TOKEN>", "accessToken": "<ACCESS TOKEN>", "refreshToken": "<REFRESH TOKEN>" }, "token": "<ACCESS TOKEN>", "accessToken": "<ACCESS TOKEN>", "refreshToken": "<REFRESH TOKEN>" }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/login`:<br>
 HEADERS: none<br>
 BODY: (JSON) `username, password` keys expected OR `token` key to authenticate with an existing token<br>
-RETURN: Your user data and a token (no token is provided if using token auth). Can be used infinitely.
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "user": { "uuid": "<UUID>", "username": "<USERNAME>", "pfp": null, "bio": null, "token": "<ACCESS TOKEN>", "accessToken": "<ACCESS TOKEN>", "refreshToken": "<REFRESH TOKEN>" }, "token": "<ACCESS TOKEN>", "accessToken": "<ACCESS TOKEN>", "refreshToken": "<REFRESH TOKEN>" }`<br>
+ERROR: HTTP 401 with `{ "error": true }`
 
+*NOTE: Registering and logging in now issue both an access token and a refresh token! The legacy `token` field remains for compatibility and contains the access token. Logging in with an existing token also rotates both tokens and returns the new values.*
+
+If the client sends `setCookie: true` in the request body, the server will also set `HttpOnly`, `Secure`, `SameSite=Lax` cookies named `accessToken` and `refreshToken` on the response. The flag is `false` by default.
 
 ## HOME
+
 `GET` from `/home?page=<PAGE NUMBER>`<br>
 HEADERS: none<br>
 BODY: none<br>
-RETURN: A page of up to 25 posts in a JSON array. Page specifier is optional and defaults to 1.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "page": 1, "posts": [ { "id": 1, "user_id": "<UUID>", "author": "<USERNAME>", "uuid": "<POST UUID>", "content": "Hello", "ts": 1710000000000, "client": "unknown", "likes": 0, "users_liked": "[]", "reply_count": 0 } ] }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/home`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: (JSON) `content` key expected<br>
-RETURN: Your post's data as stored on the server.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "content": "Hello", "postId": 1, "postUuid": "<POST UUID>", "ts": 1710000000000, "author": "<USERNAME>", "clientId": "unknown" }`<br>
+ERROR: HTTP 401 with `{ "error": true }` or HTTP 400 with `{ "error": true }`
 
 `PATCH` to `/home`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
-BODY: (JSON) `postId` required (integer), `content` (if creator of post) and/or `like` (anyone) is optional (at least one is required)<br>
-RETURN: Updated post data as stored on the server.
-
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: (JSON) `postId` required, `content` or `like` optional<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `DELETE` to `/home`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
-BODY: (JSON) `postId` required (integer)<br>
-RETURN: `{ error: false }` if successful
-
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: (JSON) `postId` required<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 ## USERS
-`GET` from `/user/<USER'S INTEGER ID>?page=<PAGE NUMBER>`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
-BODY: none<br>
-RETURN: User's data and home posts, if available. Page specifier is optional and defaults to 1.
 
+`GET` from `/user/<USER'S INTEGER ID>?page=<PAGE NUMBER>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: none<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "user": { "username": "<USERNAME>", "pfp": null, "bio": null, "followers": [] }, "userPosts": [ { "id": 1, "content": "Hello", "author": "<USERNAME>" } ] }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `PATCH` to `/user`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
-BODY: (JSON) `username`, `pfp`, and/or `bio` keys optional (at least one required). `username` must be 3–24 characters, `pfp` must be 8+ characters, `bio` must be non-empty.<br>
-RETURN: `{ error: false }` if successful
-
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: (JSON) `username`, `pfp`, and/or `bio` keys optional<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 ## INBOX
-`GET` from `/inbox?page=<PAGE NUMBER>`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
-BODY: none<br>
-RETURN: A page of up to 25 inbox messages and an `unread` boolean indicating whether you have unread messages. Page specifier is optional and defaults to 1.
 
+`GET` from `/inbox?page=<PAGE NUMBER>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: none<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "messages": [ { "id": "<UUID>", "sender_id": "System", "content": "Welcome", "ts": 1710000000000, "read": 0 } ], "unread": true }`<br>
+ERROR: HTTP 401 with `{ "error": true }` or HTTP 400 with `{ "error": true }`
 
 `PATCH` to `/inbox`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: (JSON) `message_id` required (UUID string)<br>
-RETURN: `{ error: false }` if the message was successfully marked as read
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "messages": true }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 ## GUILDS
-`GET` from `/guilds?page=<PAGE>`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
-BODY: none<br>
-RETURN: A page of up to 25 guilds.
 
+`GET` from `/guilds?page=<PAGE>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: none<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "guilds": [ { "uuid": "<GUILD UUID>", "name": "My Guild", "description": "Desc", "ownerID": "<UUID>", "memberIDs": ["<UUID>"], "channels": [], "ts": 1710000000000 } ] }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `GET` from `/guilds/subscribed`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
-RETURN: All guilds the authenticated user is a member of.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "guilds": [ { "uuid": "<GUILD UUID>", "name": "My Guild", "description": "Desc" } ] }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/guilds`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: (JSON) `name` and `description` keys expected<br>
-RETURN: `{ error: false, guilds: <GUILD DATA> }` on success. A default `general` channel is created automatically.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "guilds": { "id": "<GUILD UUID>", "name": "My Guild", "description": "Desc" } }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `GET` from `/guild/<GUILD UUID>?page=<PAGE>`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
-RETURN: Posts in the guild, paginated. Must be a member.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "posts": [ { "guildId": "<GUILD UUID>", "id": 1, "content": "Hello", "channelId": "general", "ts": 1710000000000, "author": "<USERNAME>" } ] }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `PATCH` to `/guild/<GUILD UUID>`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
-BODY: (JSON) `name` and/or `description` keys optional (at least one required)<br>
-RETURN: `{ error: false }` if successful. Owner only.
-
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: (JSON) `name` and/or `description` keys optional<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `DELETE` to `/guild/<GUILD UUID>`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
-RETURN: `{ error: false }` if successful. Owner only.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/guild/<GUILD UUID>/<CHANNEL UUID>`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: (JSON) `content` key expected<br>
-RETURN: `{ error: false, post: <POST DATA> }` on success. Must be a member.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "post": { "guildId": "<GUILD UUID>", "id": 1, "content": "Hello", "channelId": "<CHANNEL UUID>", "ts": 1710000000000, "author": "<USERNAME>" } }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/guild/<GUILD UUID>/join`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
-RETURN: `{ error: false, joined: true }` if successful.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "joined": true }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `DELETE` to `/guild/<GUILD UUID>/leave`<br>
-HEADERS: (JSON) `Authorization` key expected with the valuebeing `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
-RETURN: `{ error: false, left: true }` if successful. Guild owner cannot leave.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "left": true }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `GET` from `/guild/<GUILD UUID>/members`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
-RETURN: Array of member objects with `uuid`, `username`, and `pfp`. Must be a member.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "members": [ { "uuid": "<UUID>", "username": "<USERNAME>", "pfp": null } ] }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 ## GUILD CHANNELS
-`GET` from `/guild/channels/<GUILD UUID>`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
-BODY: none<br>
-RETURN: Array of channels, each with their most recent 25 posts. Must be a member.
 
+`GET` from `/guild/channels/<GUILD UUID>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: none<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "channels": [ { "id": "general", "name": "general", "posts": [ { "content": "Hello", "author": "<USERNAME>" } ] } ] }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/guild/channels`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: (JSON) `guildId` and `name` keys expected<br>
-RETURN: `{ error: false, channel: <CHANNEL DATA> }` on success. Must be a member.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "channel": { "id": "<CHANNEL UUID>", "name": "announcements" } }`<br>
+ERROR: HTTP 400 or HTTP 500 with `{ "error": true }`
 
 `PATCH` to `/guild/channels/<GUILD UUID>`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: (JSON) `channelId` and `name` keys expected<br>
-RETURN: `{ error: false, channel: <CHANNEL DATA> }` on success. Must be a member.
-
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "channel": { "id": "<CHANNEL UUID>", "name": "announcements" } }`<br>
+ERROR: HTTP 400 or HTTP 500 with `{ "error": true }`
 
 `DELETE` to `/guild/channels`<br>
-HEADERS: (JSON) `Authorization` key expected with the value being `Bearer <TOKEN>`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: (JSON) `guildId` and `channelId` keys expected<br>
-RETURN: `{ error: false }` if successful. Must be a member.
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false }`<br>
+ERROR: HTTP 400 or HTTP 500 with `{ "error": true }`
 
+## GUILD ROLES & PERMISSIONS
+
+`GET` from `/guild/<GUILD UUID>/roles`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: none<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "roles": [ { "id": "<ROLE UUID>", "name": "mods", "color": "#ff5757", "permissions": { "manageRoles": true, "banMembers": true } } ] }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
+
+`POST` to `/guild/<GUILD UUID>/roles`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: (JSON) `name` required, `color` optional, `permissions` optional<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "role": { "id": "<ROLE UUID>", "name": "mods", "color": "#ff5757", "permissions": { "manageRoles": true, "banMembers": true } } }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
+
+`POST` to `/guild/<GUILD UUID>/roles/<ROLE UUID>/members`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: (JSON) `userId` required<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "assigned": true }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
+
+`PATCH` to `/guild/<GUILD UUID>/channel-permissions`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: (JSON) `channelId`, `roleId`, `view`, `send`, and `history` keys expected<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "updated": true }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
+
+Note: Channel access is enforced per role with three permission flags: `view`, `send`, and `history`.
+
+## GUILD MODERATION
+
+`POST` to `/guild/<GUILD UUID>/moderation/delete-post`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: (JSON) `postId` required<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "deleted": true }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
+
+`POST` to `/guild/<GUILD UUID>/moderation/kick`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: (JSON) `userId` required, `reason` optional<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "kicked": true }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
+
+`POST` to `/guild/<GUILD UUID>/moderation/ban`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: (JSON) `userId` required, `durationSeconds` optional, `reason` optional<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "banned": true }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
 
 ## WEBSOCKET
-All messages are JSON with a `type` field.
 
+All messages are JSON with a `type` field.
 
 **Authenticate** (required before receiving events):<br>
 SEND: `{ "type": "auth", "token": "<TOKEN>" }`<br>
@@ -171,13 +269,13 @@ RECEIVE: `{ "type": "authenticated", "username": "<USERNAME>" }` on success, or 
 
 **Events you will receive:**
 
-| type | payload | description |
-|---|---|---|
-| `home:post` | post data | A new post was created on the home feed |
-| `home:post:edit` | `postId, content` | A home post was edited |
-| `home:post:delete` | `postId` | A home post was deleted |
-| `guild:post` | `guildId` + post data | A new post was made in a guild you're in |
-| `guild:update` | `guildId, name, description` | A guild's info was updated |
-| `guild:channel:create` | `guildId, channel` | A channel was created in a guild |
-| `guild:channel:delete` | `guildId, channelId` | A channel was deleted in a guild |
-| `inbox:message` | message data | You received a new inbox message |
+| type                   | payload                      | description                              |
+| ---------------------- | ---------------------------- | ---------------------------------------- |
+| `home:post`            | post data                    | A new post was created on the home feed  |
+| `home:post:edit`       | `postId, content`            | A home post was edited                   |
+| `home:post:delete`     | `postId`                     | A home post was deleted                  |
+| `guild:post`           | `guildId` + post data        | A new post was made in a guild you're in |
+| `guild:update`         | `guildId, name, description` | A guild's info was updated               |
+| `guild:channel:create` | `guildId, channel`           | A channel was created in a guild         |
+| `guild:channel:delete` | `guildId, channelId`         | A channel was deleted in a guild         |
+| `inbox:message`        | message data                 | You received a new inbox message         |

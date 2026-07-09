@@ -54,7 +54,7 @@ function getDB(dbPath = "main.db") {
   return new Database(dbPath);
 }
 
-async function verifyPostInDB(db, postUuid, shouldExist = true) {
+function verifyPostInDB(db, postUuid, shouldExist = true) {
   const post = db.prepare(`SELECT * FROM posts WHERE uuid = ?`).value(postUuid);
   if (shouldExist) {
     assert(post !== undefined, `Post ${postUuid} should exist in DB`);
@@ -64,7 +64,7 @@ async function verifyPostInDB(db, postUuid, shouldExist = true) {
   return post;
 }
 
-async function verifyUserInDB(db, userUuid, expectedData = {}) {
+function verifyUserInDB(db, userUuid, expectedData = {}) {
   const user = db.prepare(`SELECT * FROM users WHERE uuid = ?`).value(userUuid);
   assert(user !== undefined, `User ${userUuid} should exist in DB`);
   if (expectedData.username) {
@@ -77,7 +77,7 @@ async function verifyUserInDB(db, userUuid, expectedData = {}) {
 }
 
 Deno.test("API flow", async (t) => {
-  const unique = Date.now().toString();
+  const unique = crypto.randomUUID().split("-")[0];
   const username = `testuser_${unique}`;
   const password = "TestPassword123!";
 
@@ -95,6 +95,21 @@ Deno.test("API flow", async (t) => {
 
     assert(res.status === 200 || res.status === 201);
     assert(data);
+    assert(data.accessToken, "Register response should include an access token");
+    assert(data.refreshToken, "Register response should include a refresh token");
+  });
+
+  await t.step("Register user with cookie opt-in", async () => {
+    const cookieUsername = `${username}_cookie`;
+    const { res } = await request("POST", "/register", {
+      username: cookieUsername,
+      password,
+      setCookie: true,
+    });
+
+    assertEquals(res.status, 200);
+    const cookies = res.headers.getSetCookie?.() ?? [];
+    assert(cookies.some((cookie) => cookie.includes("accessToken=") && cookie.includes("HttpOnly") && cookie.includes("Secure")), "Register response should set an HttpOnly Secure cookie when requested");
   });
 
   await t.step("Login user", async () => {
@@ -106,6 +121,8 @@ Deno.test("API flow", async (t) => {
 
     assertEquals(res.status, 200);
     assert(data && data.user && data.user.token);
+    assert(data.user.accessToken, "Login response should include an access token");
+    assert(data.user.refreshToken, "Login response should include a refresh token");
 
     token = data.user.token;
     userId = data.user.uuid;
@@ -286,6 +303,122 @@ Deno.test("API flow", async (t) => {
       const deleteGuild = await request("DELETE", `/guild/${guildId}`, undefined, guildHeaders);
       assert(deleteGuild.res.status !== 404, "DELETE /guild/:guildId should be registered");
     }
+  });
+
+  await t.step("Guild permissions and moderation flow", async () => {
+    if (!token || !userId) return;
+
+    const modUsername = `mod_${unique}`;
+    const modPassword = "ModPassword123!";
+
+    const modRegister = await request("POST", "/register", {
+      username: modUsername,
+      password: modPassword,
+    });
+    assertEquals(modRegister.res.status, 200, "Moderator registration should succeed");
+    const modUser = modRegister.data?.user;
+    assert(modUser?.uuid, "Moderator user should be created");
+
+    const modLogin = await request("POST", "/login", {
+      username: modUsername,
+      password: modPassword,
+    });
+    assertEquals(modLogin.res.status, 200, "Moderator login should succeed");
+    const modToken = modLogin.data?.user?.token;
+    assert(modToken, "Moderator token should be present");
+
+    const guildHeaders = { Authorization: `Bearer ${token}` };
+    const createdGuild = await request(
+      "POST",
+      "/guilds",
+      { name: `Perms ${unique}`, description: "Permission test guild" },
+      guildHeaders,
+    );
+    assertEquals(createdGuild.res.status, 200, "Permission test guild should be created");
+    const guildId = createdGuild.data?.guilds?.id ?? createdGuild.data?.id;
+    assert(guildId, "Permission test guild should be returned");
+
+    const roleCreate = await request(
+      "POST",
+      `/guild/${guildId}/roles`,
+      {
+        name: "mods",
+        color: "#ff5757",
+        permissions: {
+          manageRoles: true,
+          manageChannels: true,
+          moderatePosts: true,
+          kickMembers: true,
+          banMembers: true,
+        },
+      },
+      guildHeaders,
+    );
+    assertEquals(roleCreate.res.status, 200, "Role creation should succeed");
+    const roleId = roleCreate.data?.role?.id;
+    assert(roleId, "Role should be returned");
+
+    const roleAssign = await request(
+      "POST",
+      `/guild/${guildId}/roles/${roleId}/members`,
+      { userId: userId },
+      guildHeaders,
+    );
+    assertEquals(roleAssign.res.status, 200, "Role assignment should succeed");
+
+    const channelPermissions = await request(
+      "PATCH",
+      `/guild/${guildId}/channel-permissions`,
+      {
+        channelId: "general",
+        roleId,
+        view: true,
+        send: true,
+        history: true,
+      },
+      guildHeaders,
+    );
+    assertEquals(channelPermissions.res.status, 200, "Channel permission update should succeed");
+
+    const joinGuild = await request(
+      "POST",
+      `/guild/${guildId}/join`,
+      {},
+      { Authorization: `Bearer ${modToken}` },
+    );
+    assertEquals(joinGuild.res.status, 200, "Moderator should be able to join the guild");
+
+    const moderationDelete = await request(
+      "POST",
+      `/guild/${guildId}/moderation/delete-post`,
+      { postId: "missing-post" },
+      guildHeaders,
+    );
+    assertEquals(moderationDelete.res.status, 400, "Deleting a missing post should fail gracefully");
+
+    const moderationKick = await request(
+      "POST",
+      `/guild/${guildId}/moderation/kick`,
+      { userId: modUser.uuid, reason: "Test kick" },
+      guildHeaders,
+    );
+    assertEquals(moderationKick.res.status, 200, "Kick endpoint should succeed");
+
+    const rejoinGuild = await request(
+      "POST",
+      `/guild/${guildId}/join`,
+      {},
+      { Authorization: `Bearer ${modToken}` },
+    );
+    assertEquals(rejoinGuild.res.status, 200, "Moderator should be able to rejoin after being kicked");
+
+    const moderationBan = await request(
+      "POST",
+      `/guild/${guildId}/moderation/ban`,
+      { userId: modUser.uuid, durationSeconds: 3600, reason: "Test ban" },
+      guildHeaders,
+    );
+    assertEquals(moderationBan.res.status, 200, "Ban endpoint should succeed");
   });
 
   if (destroyPost) {

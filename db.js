@@ -14,9 +14,16 @@ export function initDB() {
     password TEXT NOT NULL,
     pfp TEXT, -- url to image
     bio TEXT,
-    token TEXT
+    token TEXT,
+    refresh_token TEXT
 );
 `);
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN refresh_token TEXT`);
+  } catch {
+    // Ignore if the column already exists.
+  }
+
   db.exec(`CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT,
@@ -89,6 +96,44 @@ export function initDB() {
   author TEXT
 );
 `);
+  db.exec(`CREATE TABLE IF NOT EXISTS guild_roles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uuid TEXT UNIQUE,
+  guildID TEXT NOT NULL,
+  name TEXT NOT NULL,
+  color TEXT,
+  permissions TEXT DEFAULT '{}',
+  createdBy TEXT,
+  ts INTEGER
+);
+`);
+  db.exec(`CREATE TABLE IF NOT EXISTS guild_role_members (
+  guildID TEXT NOT NULL,
+  roleID TEXT NOT NULL,
+  userID TEXT NOT NULL,
+  PRIMARY KEY (guildID, roleID, userID)
+);
+`);
+  db.exec(`CREATE TABLE IF NOT EXISTS guild_channel_permissions (
+  guildID TEXT NOT NULL,
+  channelId TEXT NOT NULL,
+  roleID TEXT NOT NULL,
+  viewPermission INTEGER DEFAULT 0,
+  sendPermission INTEGER DEFAULT 0,
+  historyPermission INTEGER DEFAULT 0,
+  PRIMARY KEY (guildID, channelId, roleID)
+);
+`);
+  db.exec(`CREATE TABLE IF NOT EXISTS guild_bans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  guildID TEXT NOT NULL,
+  userID TEXT NOT NULL,
+  reason TEXT,
+  untilTs INTEGER,
+  createdBy TEXT,
+  ts INTEGER
+);
+`);
 
   db.exec(`CREATE TABLE IF NOT EXISTS keys (
   id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -119,6 +164,22 @@ export function initDB() {
   );
   db.exec(
     `CREATE INDEX IF NOT EXISTS idx_guild_posts_channel ON guild_posts(channelId)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_guild_roles_guild ON guild_roles(guildID)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_guild_role_members_user ON guild_role_members(userID)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_guild_channel_permissions_channel ON guild_channel_permissions(channelId)
+`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_guild_bans_user ON guild_bans(userID)
 `,
   );
   db.exec(
