@@ -441,6 +441,10 @@ async function handler(req) {
     }
   }
 
+  if (pathParts.length === 0 && method === "GET") {
+    return new Response("Hello! This is a server URL. This means you have to plug this into a client to connect to maelink. Ask the server administrator(s) for help.");
+  }
+
   return json({ error: true }, 404);
 }
 
