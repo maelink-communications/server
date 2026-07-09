@@ -450,11 +450,10 @@ async function handler(req) {
   if (pathParts.length === 0 && method === "GET") {
     if (pathParts.length === 0 && method === "GET") {
       const serverName = Deno.env.get("SERVER_NAME") || "maelink server";
-      const serverDescription =
-        Deno.env.get("SERVER_DESCRIPTION") || "No description given for this server.";
+      const serverDescription = Deno.env.get("SERVER_DESCRIPTION") || "No description given for this server.";
       const escapedDescription = serverDescription.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
       const versioning = await version.getVersion();
-      const connected = await socket.getConnectedSockets();
+      const registered = db.prepare("SELECT COUNT(*) FROM users");
       const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -563,8 +562,8 @@ async function handler(req) {
             <span class="info-value">Online</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Connected users: </span>
-            <span class="info-value">${connected}</span>
+            <span class="info-label">Registered users: </span>
+            <span class="info-value">${registered}</span>
           </div>
         </div>
         

@@ -88,3 +88,18 @@ export async function editUser(token, username, pfp, bio) {
 
   return true;
 }
+
+export function followUser(token, followID) { // yes i know these db operations should be condensed... i'll do it later, kay?
+  if (!token || !followID) return false;
+  // this is a mess
+  verifyToken(token).then(async (payload) => {
+    const user = await db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(payload.uuid);
+    if (!user) return false;
+    const follow = await db.prepare(`SELECT uuid FROM users WHERE uuid = ?`).value(followID);
+    if (!follow) return false;
+    const check = await db.prepare(`SELECT * FROM followers WHERE followerID = ? AND followedID = ?`).get(payload.uuid, followID);
+    if (check) return false;
+    db.prepare(`INSERT INTO followers (followerID, followedID) VALUES (?, ?)`).run(payload.uuid, followID);
+    return true;
+  });
+}
