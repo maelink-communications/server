@@ -14,10 +14,10 @@ GitHub: <https://github.com/Zagyen8913/yorlink><br>
 **Verified to work on**: v0.3.3b
 ### waechain
 By: Kabez<br>
-What you can do: Login (not register!), see Home posts, make posts, log out.<br>
+What you can do: Login, register (as of a2), see Home posts (as logged in AND guest as of a2), make posts, log out.<br>
 Where: <https://kabezz.github.io/waechain-maelink/><br>
 GitHub: <https://github.com/Kabezz/waechain-maelink><br>
-**Verified to work on**: v0.3.3b
+**Verified to work on**: v0.4.0
 
 ## Non-public/fully working clients
 
