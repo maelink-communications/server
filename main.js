@@ -68,7 +68,9 @@ function withCors(response, origin) {
 }
 
 function getToken(req) {
-  return req.headers.get("Authorization")?.split(" ")[1] ?? null;
+  if (req.headers.get("Authorization")) return req.headers.get("Authorization").split(" ")[1];
+  if (req.headers.get("Cookie")) return getCookies(req.headers).accessToken;
+  return null;
 }
 
 async function readJsonBody(req) {
@@ -95,15 +97,6 @@ async function handler(req) {
   log(`Path parts: ${pathParts.join(", ")}`, "blue");
   if (method === "OPTIONS") {
     return new Response(null);
-  }
-
-  if (pathParts[0] === "debug" && method === "POST") {
-    // const cookies = req.headers.get("Cookie");
-    // let token = "none";
-    // let token2 = "none";
-    // if (cookies.accessToken) token = cookies.accessToken;
-    // if (cookies.refreshToken) token2 = cookies.refreshToken;
-    return json({ accessToken: "token", refreshToken: "token2" }, 200);
   }
 
   if (pathParts[0] === "register" && method === "POST") {
