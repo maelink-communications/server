@@ -16,16 +16,6 @@ await keys.initKeys();
 
 // Some helpers
 
-const ALLOWED_URLS = [
-  "https://solstice52.github.io",
-  "https://notfenixio.is-a.dev",
-  "https://zag.lunarsphere.net",
-  "https://kabezz.github.io",
-  "https://turbowarp.org",
-  "https://localhost",
-  "https://127.0.0.1",
-]
-
 const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "content-type, Authorization, p, x-server-id",
@@ -52,7 +42,7 @@ function buildCookie(name, value, maxAge) {
 
 function buildAuthCookies(accessToken, refreshToken) {
   return [
-    buildCookie("accessToken", accessToken, 60 * 60 * 2),
+    buildCookie("accessToken", accessToken, 60 * 15),
     buildCookie("refreshToken", refreshToken, 60 * 60 * 24 * 30),
   ];
 }
@@ -62,7 +52,7 @@ function withCors(response, origin) {
   for (const [k, v] of Object.entries(CORS_HEADERS)) {
     headers.set(k, v);
   }
-  if (origin && ALLOWED_URLS.includes(origin)) {
+  if (origin) {
     headers.set("Access-Control-Allow-Origin", origin);
     headers.set("Vary", "Origin");
   }

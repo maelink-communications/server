@@ -93,7 +93,8 @@ export function initDB() {
   ts INTEGER,
   content TEXT,
   channelId TEXT,
-  author TEXT
+  author TEXT,
+  reply_to TEXT
 );
 `);
   db.exec(`CREATE TABLE IF NOT EXISTS guild_roles (

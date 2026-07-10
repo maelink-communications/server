@@ -2,7 +2,7 @@
 
 _Things here will be updated frequently\*._
 
-NOTE: _Access tokens expire 2 hours after they are first issued!<br>Refresh tokens expire after 30 days! STORE THEM SECURELY!_
+NOTE: _Access tokens expire 15 minutes after they are first issued!<br>Refresh tokens expire after 30 days! STORE THEM SECURELY!_
 
 ## Response conventions
 
