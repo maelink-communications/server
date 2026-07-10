@@ -18,6 +18,11 @@ await keys.initKeys();
 
 const ALLOWED_URLS = [
   "https://solstice52.github.io",
+  "https://notfenixio.is-a.dev/pancake",
+  "https://zag.lunarsphere.net/yorlink",
+  "https://kabezz.github.io/waechain-maelink",
+  "https://localhost",
+  "https://127.0.0.1",
 ]
 
 const CORS_HEADERS = {
