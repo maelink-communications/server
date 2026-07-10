@@ -21,6 +21,7 @@ const ALLOWED_URLS = [
   "https://notfenixio.is-a.dev/pancake",
   "https://zag.lunarsphere.net/yorlink",
   "https://kabezz.github.io/waechain-maelink",
+  "https://turbowarp.org",
   "https://localhost",
   "https://127.0.0.1",
 ]
