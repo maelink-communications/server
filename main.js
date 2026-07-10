@@ -119,14 +119,17 @@ async function handler(req) {
     const body = await readJsonBody(req);
     const { username, password, token, setCookie = false } = body;
     const cookies = getCookies(req.headers);
-    if (cookies.accessToken) token = cookies.accessToken;
+    let token2;
+    if (cookies.accessToken) token2 = cookies.accessToken;
     let user;
     if (token) {
       user = await auth.loginToken(token);
+    } else if (token2) {
+      user = await auth.loginToken(token2);
     } else {
       user = await auth.login(username, password);
     }
-    if (!user) return json({ error: true }, 401);
+    if (!user) return json({ error: true, token: token, token2: token2 }, 401);
     return json(
       {
         error: false,
