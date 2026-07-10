@@ -47,7 +47,7 @@ function json(data, status = 200, cookies = []) {
 }
 
 function buildCookie(name, value, maxAge) {
-  return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge*1000}`;
+  return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
 }
 
 function buildAuthCookies(accessToken, refreshToken) {
