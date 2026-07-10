@@ -117,6 +117,8 @@ async function handler(req) {
   if (pathParts[0] === "login" && method === "POST") {
     const body = await readJsonBody(req);
     const { username, password, token, setCookie = false } = body;
+    const cookies = getCookies(req.headers);
+    if (cookies.accessToken) token = cookies.accessToken;
     let user;
     if (token) {
       user = await auth.loginToken(token);
