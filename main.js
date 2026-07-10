@@ -98,12 +98,12 @@ async function handler(req) {
   }
 
   if (pathParts[0] === "debug" && method === "POST") {
-    // const cookies = getCookies(req.headers);
+    const cookies = req.headers.get("Cookie");
     // let token = "none";
     // let token2 = "none";
     // if (cookies.accessToken) token = cookies.accessToken;
     // if (cookies.refreshToken) token2 = cookies.refreshToken;
-    return json({ accessToken: "token", refreshToken: "token2" }, 200);
+    return json({ cookies: cookies }, 200);
   }
 
   if (pathParts[0] === "register" && method === "POST") {
