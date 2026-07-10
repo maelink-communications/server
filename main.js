@@ -10,6 +10,7 @@ import { log } from "./logging.js";
 import * as keys from "./keys.js";
 import * as socket from "./socket.js";
 import * as version from "./version.js";
+import { getCookies } from "@std/http/cookie";
 
 await db.initDB();
 await keys.initKeys();
