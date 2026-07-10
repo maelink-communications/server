@@ -20,6 +20,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "content-type, Authorization, p, x-server-id",
+  "Access-Control-Allow-Credentials": true,
 };
 
 function json(data, status = 200, cookies = []) {
