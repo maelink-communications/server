@@ -32,10 +32,6 @@ function json(data, status = 200, cookies = []) {
     "Content-Type": "application/json",
     ...CORS_HEADERS,
   });
-  if (ALLOWED_URLS.includes(origin)) {
-    headers.append("Access-Control-Allow-Origin", origin);
-    headers.append("Vary", "Origin");
-  }
   for (const cookie of cookies) {
     headers.append("Set-Cookie", cookie);
   }
