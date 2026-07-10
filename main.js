@@ -97,6 +97,15 @@ async function handler(req) {
     return new Response(null);
   }
 
+  if (pathParts[0] === "debug" && method === "POST") {
+    const cookies = getCookies(req.headers);
+    let token = "none";
+    let token2 = "none";
+    if (cookies.accessToken) token = cookies.accessToken;
+    if (cookies.refreshToken) token2 = cookies.refreshToken;
+    return json({ accessToken: token, refreshToken: token2 }, 200);
+  }
+
   if (pathParts[0] === "register" && method === "POST") {
     const body = await readJsonBody(req);
     const { username, password, setCookie = false } = body;
@@ -129,7 +138,7 @@ async function handler(req) {
     } else {
       user = await auth.login(username, password);
     }
-    if (!user) return json({ error: true, token: token, token2: token2 }, 401);
+    if (!user) return json({ error: true }, 401);
     return json(
       {
         error: false,
