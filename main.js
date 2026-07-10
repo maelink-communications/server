@@ -16,6 +16,10 @@ await keys.initKeys();
 
 // Some helpers
 
+const ALLOWED_URLS = [
+  "https://solstice52.github.io",
+]
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
@@ -28,6 +32,10 @@ function json(data, status = 200, cookies = []) {
     "Content-Type": "application/json",
     ...CORS_HEADERS,
   });
+  if (ALLOWED_URLS.includes(origin)) {
+    headers.append("Access-Control-Allow-Origin", origin);
+    headers.append("Vary", "Origin");
+  }
   for (const cookie of cookies) {
     headers.append("Set-Cookie", cookie);
   }
@@ -48,10 +56,14 @@ function buildAuthCookies(accessToken, refreshToken) {
   ];
 }
 
-function withCors(response) {
+function withCors(response, origin) {
   const headers = new Headers();
   for (const [k, v] of Object.entries(CORS_HEADERS)) {
     headers.set(k, v);
+  }
+  if (origin && ALLOWED_URLS.includes(origin)) {
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set("Vary", "Origin");
   }
   for (const [k, v] of response.headers.entries()) {
     if (k.toLowerCase() === "set-cookie") {
@@ -752,7 +764,7 @@ async function handler(req) {
 
 Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req) => {
   try {
-    return withCors(await handler(req));
+    return withCors(await handler(req), req.headers.get("origin"));
   } catch (e) {
     console.error("Unhandled server error:", e);
     return new Response(String(e), { status: 500 });
