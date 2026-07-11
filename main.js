@@ -70,7 +70,7 @@ function withCors(response, origin) {
 
 function getToken(req) {
   if (req.headers.get("Authorization")) return req.headers.get("Authorization").split(" ")[1];
-  if (req.headers.get("Cookie")) return getCookies(req.headers).accessToken;
+  if (req.headers.get("Cookie")) return getCookies(req.headers).accessToken || getCookies(req.headers).refreshToken;
   return null;
 }
 
