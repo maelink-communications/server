@@ -194,11 +194,11 @@ async function handler(req, ctx) {
     const { content, clientId } = await req.json();
     try {
       const post = await home.createPost(token, content, clientId);
-      if (!post) return json({ error: true }, 400);
+      if (!post) return json({ error: true, msg: "couldn't find post" }, 400);
       return json(post);
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -209,7 +209,7 @@ async function handler(req, ctx) {
       return json({ error: false, page, posts });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -220,16 +220,16 @@ async function handler(req, ctx) {
     try {
       if (like) {
         const post = await home.postLikeSet(token, postId);
-        if (!post) return json({ error: true }, 400);
+        if (!post) return json({ error: true, msg: "couldn't find post" }, 400);
         return json({ error: false });
       } else {
         const post = await home.editPost(token, postId, content);
-        if (!post) return json({ error: true }, 400);
+        if (!post) return json({ error: true, msg: "couldn't find post" }, 400);
         return json({ error: false });
       }
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -239,11 +239,11 @@ async function handler(req, ctx) {
     const { postId } = await req.json();
     try {
       const post = await home.destroyPost(token, postId);
-      if (!post) return json({ error: true }, 400);
+      if (!post) return json({ error: true, msg: "couldn't find post" }, 400);
       return json({ error: false });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -256,14 +256,14 @@ async function handler(req, ctx) {
     try {
       const user = await me.fetchUser(token, userId);
       if (!user) {
-        return json({ error: true }, 400);
+        return json({ error: true, msg: "couldn't find user" }, 400);
       } else {
         userPosts = await me.fetchUserPosts(token, userId, p);
       }
       return json({ error: false, user, userPosts });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -273,11 +273,11 @@ async function handler(req, ctx) {
     const { username, pfp, bio } = await req.json();
     try {
       const user = await me.editUser(token, username, pfp, bio);
-      if (!user) return json({ error: true }, 400);
+      if (!user) return json({ error: true, msg: "couldn't find user" }, 400);
       return json({ error: false });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -289,11 +289,11 @@ async function handler(req, ctx) {
     try {
       const user = await inbox.fetchMessages(token.toString(), page);
       const hasNew = await inbox.checkNewMessages(token);
-      if (!user) return json({ error: true }, 400);
+      if (!user) return json({ error: true, msg: "couldn't find user" }, 400);
       return json({ error: false, messages: user, unread: hasNew });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -303,11 +303,11 @@ async function handler(req, ctx) {
     const { message_id } = await req.json();
     try {
       const message = await inbox.setRead(message_id, token);
-      if (!message) return json({ error: true }, 400);
+      if (!message) return json({ error: true, msg: "couldn't find message" }, 400);
       return json({ error: false, messages: message });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -317,11 +317,11 @@ async function handler(req, ctx) {
     const { page } = parseInt(url.searchParams.get("page") || "1");
     try {
       const fetchedGuilds = await guilds.fetchGuilds(token, page);
-      if (!fetchedGuilds) return json({ error: true }, 400);
+      if (!fetchedGuilds) return json({ error: true, msg: "couldn't fetch guilds" }, 400);
       return json({ error: false, guilds: fetchedGuilds });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -334,11 +334,11 @@ async function handler(req, ctx) {
     if (!token) return json({ error: true }, 401);
     try {
       const fetchedGuilds = await guilds.fetchSubscribedGuilds(token);
-      if (!fetchedGuilds) return json({ error: true }, 400);
+      if (!fetchedGuilds) return json({ error: true, msg: "couldn't fetch subscribed guilds" }, 400);
       return json({ error: false, guilds: fetchedGuilds });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -348,11 +348,11 @@ async function handler(req, ctx) {
     const { name, description } = await readJsonBody(req);
     try {
       const fetchedGuilds = await guilds.createGuild(token, name, description);
-      if (!fetchedGuilds) return json({ error: true }, 400);
+      if (!fetchedGuilds) return json({ error: true, msg: "couldn't create guild" }, 400);
       return json({ error: false, guilds: fetchedGuilds });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -366,11 +366,11 @@ async function handler(req, ctx) {
     const guildId = pathParts[2];
     try {
       const channels = await guilds.fetchGuildChannels(token, guildId, page);
-      if (!channels) return json({ error: true }, 400);
+      if (!channels) return json({ error: true, msg: "couldn't fetch channels" }, 400);
       return json({ error: false, channels });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -381,11 +381,11 @@ async function handler(req, ctx) {
     const { channelId, name } = await readJsonBody(req);
     try {
       const channel = await guilds.editChannel(token, guildId, channelId, name);
-      if (!channel) return json({ error: true }, 400);
+      if (!channel) return json({ error: true, msg: "couldn't edit channel" }, 400);
       return json({ error: false, channel });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -395,11 +395,11 @@ async function handler(req, ctx) {
     const { guildId, name } = await readJsonBody(req);
     try {
       const channel = await guilds.createChannel(token, guildId, name);
-      if (!channel) return json({ error: true }, 500);
+      if (!channel) return json({ error: true, msg: "couldn't create channel" }, 500);
       return json({ error: false, channel });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -409,11 +409,11 @@ async function handler(req, ctx) {
     const { guildId, channelId } = await readJsonBody(req);
     try {
       const channel = await guilds.deleteChannel(token, guildId, channelId);
-      if (!channel) return json({ error: true }, 500);
+      if (!channel) return json({ error: true, msg: "couldn't delete channel" }, 500);
       return json({ error: false });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -423,11 +423,11 @@ async function handler(req, ctx) {
     const guildId = pathParts[1];
     try {
       const roles = await guilds.listGuildRoles(token, guildId);
-      if (!roles) return json({ error: true }, 400);
+      if (!roles) return json({ error: true, msg: "couldn't fetch roles" }, 400);
       return json({ error: false, roles });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -438,7 +438,7 @@ async function handler(req, ctx) {
     const { name, color, permissions } = await readJsonBody(req);
     try {
       const role = await guilds.createGuildRole(token, guildId, name, color, permissions);
-      if (!role) return json({ error: true }, 400);
+      if (!role) return json({ error: true, msg: "couldn't create role" }, 400);
       return json({ error: false, role });
     } catch (e) {
       log(e, "red");
@@ -452,11 +452,11 @@ async function handler(req, ctx) {
     const guildId = pathParts[1];
     try {
       const members = await guilds.fetchGuildMembers(token, guildId);
-      if (!members) return json({ error: true }, 400);
+      if (!members) return json({ error: true, msg: "couldn't fetch members" }, 400);
       return json({ error: false, members });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -468,11 +468,11 @@ async function handler(req, ctx) {
     const { userId } = await readJsonBody(req);
     try {
       const assigned = await guilds.assignGuildRole(token, guildId, roleId, userId);
-      if (!assigned) return json({ error: true }, 400);
+      if (!assigned) return json({ error: true, msg: "couldn't assign role" }, 400);
       return json({ error: false, assigned: true });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -483,7 +483,7 @@ async function handler(req, ctx) {
     const { channelId, roleId, view, send, history } = await readJsonBody(req);
     try {
       const updated = await guilds.setChannelPermissions(token, guildId, channelId, roleId, { view, send, history });
-      if (!updated) return json({ error: true }, 400);
+      if (!updated) return json({ error: true, msg: "couldn't set permissions" }, 400);
       return json({ error: false, updated: true });
     } catch (e) {
       log(e, "red");
@@ -498,11 +498,11 @@ async function handler(req, ctx) {
     const { postId } = await readJsonBody(req);
     try {
       const deleted = await guilds.deleteGuildPost(token, guildId, postId);
-      if (!deleted) return json({ error: true }, 400);
+      if (!deleted) return json({ error: true, msg: "couldn't delete post" }, 400);
       return json({ error: false, deleted: true });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -513,11 +513,11 @@ async function handler(req, ctx) {
     const { userId, reason } = await readJsonBody(req);
     try {
       const kicked = await guilds.moderateKick(token, guildId, userId, reason);
-      if (!kicked) return json({ error: true }, 400);
+      if (!kicked) return json({ error: true, msg: "couldn't kick user" }, 400);
       return json({ error: false, kicked: true });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -528,11 +528,11 @@ async function handler(req, ctx) {
     const { userId, durationSeconds, reason } = await readJsonBody(req);
     try {
       const banned = await guilds.moderateBan(token, guildId, userId, durationSeconds, reason);
-      if (!banned) return json({ error: true }, 400);
+      if (!banned) return json({ error: true, msg: "couldn't ban user" }, 400);
       return json({ error: false, banned: true });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -546,11 +546,11 @@ async function handler(req, ctx) {
     const guildId = pathParts[1];
     try {
       const joined = await guilds.joinGuild(token, guildId);
-      if (!joined) return json({ error: true }, 400);
+      if (!joined) return json({ error: true, msg: "couldn't join guild" }, 400);
       return json({ error: false, joined: true });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -564,11 +564,11 @@ async function handler(req, ctx) {
     const guildId = pathParts[1];
     try {
       const left = await guilds.leaveGuild(token, guildId);
-      if (!left) return json({ error: true }, 400);
+      if (!left) return json({ error: true, msg: "couldn't leave guild" }, 400);
       return json({ error: false, left: true });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -579,11 +579,11 @@ async function handler(req, ctx) {
     const page = parseInt(url.searchParams.get("page") || "1");
     try {
       const guildposts = await guilds.fetchGuildPosts(token, guildId, page);
-      if (!guildposts) return json({ error: true }, 400);
+      if (!guildposts) return json({ error: true, msg: "couldn't fetch posts" }, 400);
       return json({ error: false, posts: guildposts });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -594,11 +594,11 @@ async function handler(req, ctx) {
     const { name, description } = await readJsonBody(req);
     try {
       const guild = await guilds.editGuild(token, guildId, name, description);
-      if (!guild) return json({ error: true }, 400);
+      if (!guild) return json({ error: true, msg: "couldn't edit guild" }, 400);
       return json({ error: false });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -615,11 +615,11 @@ async function handler(req, ctx) {
         content,
         channelId,
       );
-      if (!guild) return json({ error: true }, 400);
+      if (!guild) return json({ error: true, msg: "couldn't post" }, 400);
       return json({ error: false, post: guild });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -629,11 +629,11 @@ async function handler(req, ctx) {
     const guildId = pathParts[1];
     try {
       const guild = await guilds.deleteGuild(token, guildId);
-      if (!guild) return json({ error: true }, 400);
+      if (!guild) return json({ error: true, msg: "couldn't delete guild" }, 400);
       return json({ error: false });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -643,7 +643,7 @@ async function handler(req, ctx) {
       return json({ error: false, apiVersion: versioning });
     } catch (e) {
       log(e, "red");
-      return json({ error: true }, 400);
+      return json({ error: true, msg: "something else went wrong" }, 400);
     }
   }
 
@@ -810,7 +810,7 @@ Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req, ctx) => {
   }
 });
 
-log("PROTOKOL | Server is running on http://localhost:7000", "magenta");
+log(`PROTOKOL | Server is running on http://localhost:${SERVER_PORT}`, "magenta");
 
 // Initialize WS on separate port
 socket.initSocket();
