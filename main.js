@@ -229,7 +229,7 @@ async function handler(req, ctx) {
       }
     } catch (e) {
       log(e, "red");
-      return json({ error: true, msg: "something else went wrong" }, 400);
+      return json({ error: true, msg: e }, 400);
     }
   }
 
