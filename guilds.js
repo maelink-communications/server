@@ -242,9 +242,11 @@ export async function postToGuild(token, guildId, content, channelId, replyTo) {
     if (!isGuildMember(guild, id)) return false;
     if (isUserBanned(guildId, id)) return false;
     if (channelId && !canAccessChannel(guildId, id, channelId, "send")) return false;
-    const author = db.prepare(`SELECT username FROM users WHERE uuid = ?`).value(id) ?? null;
+    const stmt = db.prepare(`SELECT username FROM users WHERE uuid = ?`).value(id) ?? null;
+    const author = stmt[0];
     db.exec(`INSERT INTO guild_posts (guildID, userID, content, channelId, ts, author, reply_to) VALUES (?, ?, ?, ?, ?, ?, ?)`, guildId, id, content, channelId, Date.now(), author, replyTo);
     const post = { guildId, id, content, channelId, ts: Date.now(), author, reply_to: replyTo };
+    log(JSON.stringify(post), "yellow");
     emitGuildPost(guildId, post);
     return post;
   } catch (e) {
