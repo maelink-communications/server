@@ -96,7 +96,7 @@ async function handler(req) {
   log(`Incoming request: ${method} ${pathname}`, "blue");
   log(`Path parts: ${pathParts.join(", ")}`, "blue");
   if (method === "OPTIONS") {
-    return new Response(null);
+    return json({ error: false });
   }
 
   if (pathParts[0] === "register" && method === "POST") {
