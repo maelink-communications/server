@@ -4,7 +4,7 @@ import * as jose from "@panva/jose";
 import { hash, verify } from "@felix/argon2";
 import { sendMessage } from "./inbox.js";
 import { log } from "./logging.js";
-import { verifyToken } from "./keys.js";
+import * as keys from "./keys.js";
 import { getPrivateKey } from "./keys.js";
 const db = connectDB();
 log("Auth module loaded", "gray");
@@ -57,8 +57,8 @@ export async function register(username, password) {
     const accessToken = await signAccessToken(uuid, username);
     const refreshToken = await signRefreshToken(uuid, username);
     db.exec(
-      `INSERT INTO users (uuid, username, password, pfp, bio, token, refresh_token) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [uuid, username, hashString, null, null, accessToken, refreshToken],
+      `INSERT INTO users (uuid, username, password, pfp, bio) VALUES (?, ?, ?, ?, ?)`,
+      [uuid, username, hashString, null, null],
     );
     if (Deno.env.get("SYSTEM_MESSAGE")) {
       await sendMessage(
@@ -84,7 +84,7 @@ export async function login(username, password) {
   if (!username || !password) return false;
   const result = db
     .prepare(
-      `SELECT password, username, uuid, pfp, bio, token, refresh_token FROM users WHERE username = ?`,
+      `SELECT password, username, uuid, pfp, bio FROM users WHERE username = ?`,
     )
     .all(username);
   if (result.length === 0) return false;
@@ -94,11 +94,6 @@ export async function login(username, password) {
 
     const accessToken = await signAccessToken(result[0].uuid, result[0].username);
     const refreshToken = await signRefreshToken(result[0].uuid, result[0].username);
-    db.exec(`UPDATE users SET token = ?, refresh_token = ? WHERE username = ?`, [
-      accessToken,
-      refreshToken,
-      username,
-    ]);
 
     return buildAuthResponse(result[0], accessToken, refreshToken);
   } catch (e) {
@@ -109,22 +104,17 @@ export async function login(username, password) {
 
 export async function loginToken(token) {
   if (!token) return false;
-  const isValid = await verifyToken(token);
-  if (!isValid) return false;
+  const isValid = await keys.verifyToken(token);
   const result = db
     .prepare(
-      `SELECT token, refresh_token, username, uuid, pfp, bio FROM users WHERE token = ? OR refresh_token = ?`,
+      `SELECT username, uuid, pfp, bio FROM users WHERE username = ?`,
     )
-    .all(token, token);
+    .all(isValid.username);
   if (result.length === 0) return false;
+  if (!isValid) return false;
   try {
     const accessToken = await signAccessToken(result[0].uuid, result[0].username);
     const refreshToken = await signRefreshToken(result[0].uuid, result[0].username);
-    db.exec(`UPDATE users SET token = ?, refresh_token = ? WHERE uuid = ?`, [
-      accessToken,
-      refreshToken,
-      result[0].uuid,
-    ]);
     return buildAuthResponse(result[0], accessToken, refreshToken);
   } catch (e) {
     console.error(e);

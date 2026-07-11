@@ -1,10 +1,242 @@
 // Database init
 import { Database } from "@db/sqlite";
+import { log } from "./logging.js";
+
 log("DB module loaded", "gray");
 log("Initiating DB...", "gray");
 const startTime = performance.now();
 const db = new Database("main.db");
-import { log } from "./logging.js";
+
+// SINGLE SOURCE OF TRUTH FOR DATABASE SCHEMA
+const TABLE_PRESETS = {
+  users: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      uuid: "TEXT UNIQUE",
+      username: "TEXT UNIQUE NOT NULL",
+      password: "TEXT NOT NULL",
+      pfp: "TEXT",
+      bio: "TEXT",
+    },
+  },
+  posts: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      user_id: "TEXT",
+      author: "TEXT",
+      uuid: "TEXT UNIQUE",
+      content: "TEXT",
+      ts: "INTEGER",
+      client: "TEXT NOT NULL",
+      likes: "INTEGER DEFAULT 0",
+      users_liked: "TEXT DEFAULT '[]'",
+      reply_count: "INTEGER DEFAULT 0",
+    },
+  },
+  replies: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      uuid: "TEXT UNIQUE",
+      post_id: "TEXT",
+      user_id: "TEXT",
+      parent_reply_id: "TEXT",
+      content: "TEXT NOT NULL",
+      ts: "INTEGER",
+      likes: "INTEGER DEFAULT 0",
+    },
+  },
+  comments: {
+    columns: {
+      id: "INTEGER PRIMARY KEY",
+      post_id: "TEXT",
+      user_id: "TEXT",
+      content: "TEXT",
+      ts: "INTEGER",
+    },
+  },
+  followers: {
+    columns: {
+      followerID: "INTEGER",
+      followedID: "INTEGER",
+    },
+  },
+  inbox: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      user_id: "TEXT",
+      sender_id: "TEXT",
+      content: "TEXT",
+      ts: "INTEGER",
+      read: "INTEGER DEFAULT 0",
+    },
+  },
+  guilds: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      uuid: "TEXT UNIQUE",
+      name: "TEXT NOT NULL",
+      description: "TEXT",
+      ownerID: "TEXT",
+      memberIDs: "TEXT DEFAULT '[]'",
+      channels: "TEXT DEFAULT '[]'",
+      ts: "INTEGER",
+    },
+  },
+  guild_posts: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      guildID: "TEXT",
+      userID: "TEXT",
+      ts: "INTEGER",
+      content: "TEXT",
+      channelId: "TEXT",
+      author: "TEXT",
+      reply_to: "TEXT",
+    },
+  },
+  guild_roles: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      uuid: "TEXT UNIQUE",
+      guildID: "TEXT NOT NULL",
+      name: "TEXT NOT NULL",
+      color: "TEXT",
+      permissions: "TEXT DEFAULT '{}'",
+      createdBy: "TEXT",
+      ts: "INTEGER",
+    },
+  },
+  guild_role_members: {
+    columns: {
+      guildID: "TEXT NOT NULL",
+      roleID: "TEXT NOT NULL",
+      userID: "TEXT NOT NULL",
+    },
+  },
+  guild_channel_permissions: {
+    columns: {
+      guildID: "TEXT NOT NULL",
+      channelId: "TEXT NOT NULL",
+      roleID: "TEXT NOT NULL",
+      viewPermission: "INTEGER DEFAULT 0",
+      sendPermission: "INTEGER DEFAULT 0",
+      historyPermission: "INTEGER DEFAULT 0",
+    },
+  },
+  guild_bans: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      guildID: "TEXT NOT NULL",
+      userID: "TEXT NOT NULL",
+      reason: "TEXT",
+      untilTs: "INTEGER",
+      createdBy: "TEXT",
+      ts: "INTEGER",
+    },
+  },
+  keys: {
+    columns: {
+      id: "INTEGER PRIMARY KEY CHECK (id = 1)",
+      private_jwk: "TEXT NOT NULL",
+      public_jwk: "TEXT NOT NULL",
+    },
+  },
+};
+
+// check if primary key column
+function isPrimaryKeyColumn(defString) {
+  return /PRIMARY KEY/i.test(defString);
+}
+
+// sanitize for sqlite's alteration constraints
+function sanitizeForAddColumn(defString) {
+  return defString
+    .replace(/PRIMARY KEY\s*(\([^)]*\))?/gi, "")
+    .replace(/AUTOINCREMENT/gi, "")
+    .replace(/UNIQUE/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getExistingColumns(tableName) {
+  const rows = db.prepare(`PRAGMA table_info(${tableName})`).all
+    ? db.prepare(`PRAGMA table_info(${tableName})`).all()
+    : db.prepare(`PRAGMA table_info(${tableName})`).all();
+  return rows.map((r) => r.name);
+}
+
+function tableExists(tableName) {
+  const row = db
+    .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
+    .get(tableName);
+  return !!row;
+}
+
+function reconcileTable(tableName, preset) {
+  if (!tableExists(tableName)) {
+    log(
+      `Table "${tableName}" does not exist yet; skipping reconciliation (will be created by CREATE TABLE IF NOT EXISTS).`,
+      "gray",
+    );
+    return;
+  }
+
+  const existingColumns = getExistingColumns(tableName);
+  const presetColumns = Object.keys(preset.columns);
+
+  const toAdd = presetColumns.filter((col) => !existingColumns.includes(col));
+
+  const toDrop = existingColumns.filter((col) => !presetColumns.includes(col));
+
+  for (const col of toAdd) {
+    const rawDef = preset.columns[col];
+    const safeDef = sanitizeForAddColumn(rawDef);
+    try {
+      db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${col} ${safeDef}`);
+      log(`+ Added column "${col}" to "${tableName}"`, "green");
+    } catch (err) {
+      log(
+        `/!\\ | Failed to add column "${col}" to "${tableName}": ${err.message}`,
+        "yellow",
+      );
+    }
+  }
+
+  for (const col of toDrop) {
+    const existingRows = db.prepare(`PRAGMA table_info(${tableName})`).all
+      ? db.prepare(`PRAGMA table_info(${tableName})`).all()
+      : db.prepare(`PRAGMA table_info(${tableName})`).all();
+    const colInfo = existingRows.find((r) => r.name === col);
+    if (colInfo && colInfo.pk) {
+      log(
+        `/!\\ | Skipping drop of "${col}" on "${tableName}": part of PRIMARY KEY.`,
+        "yellow",
+      );
+      continue;
+    }
+
+    try {
+      db.exec(`ALTER TABLE ${tableName} DROP COLUMN ${col}`);
+      log(`- Dropped column "${col}" from "${tableName}"`, "yellow");
+    } catch (err) {
+      log(
+        `/!\\ | Failed to drop column "${col}" from "${tableName}" (your SQLite build may not support DROP COLUMN): ${err.message}`,
+        "yellow",
+      );
+    }
+  }
+
+  if (toAdd.length === 0 && toDrop.length === 0) {
+    log(`"${tableName}" schema already up to date.`, "gray");
+  }
+}
+
+function reconcileAllTables() {
+  for (const [tableName, preset] of Object.entries(TABLE_PRESETS)) {
+    reconcileTable(tableName, preset);
+  }
+}
+
 export function initDB() {
   // tables (mostly)
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -13,17 +245,9 @@ export function initDB() {
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     pfp TEXT, -- url to image
-    bio TEXT,
-    token TEXT,
-    refresh_token TEXT
+    bio TEXT
 );
 `);
-  try {
-    db.exec(`ALTER TABLE users ADD COLUMN refresh_token TEXT`);
-  } catch {
-    // Ignore if the column already exists.
-  }
-
   db.exec(`CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT,
@@ -195,6 +419,8 @@ export function initDB() {
     `CREATE INDEX IF NOT EXISTS idx_posts_uuid ON posts(uuid)
 `,
   );
+
+  reconcileAllTables();
 
   const endTime = performance.now();
   log(`Done initializing DB.`, "gray");
