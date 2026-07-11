@@ -82,6 +82,7 @@ Deno.test("API flow", async (t) => {
   const password = "TestPassword123!";
 
   let token = null;
+  let refreshToken = null;
   let postId = null;
   let postUuid = null;
   let userId = null;
@@ -124,13 +125,16 @@ Deno.test("API flow", async (t) => {
     assert(data.user.accessToken, "Login response should include an access token");
     assert(data.user.refreshToken, "Login response should include a refresh token");
 
-    token = data.user.token;
+    token = data.user.accessToken;
+    refreshToken = data.user.refreshToken;
+    console.log(refreshToken);
     userId = data.user.uuid;
   });
 
   await t.step("Login user with token", async () => {
+    console.log(refreshToken);
     const { res, data } = await request("POST", "/login", {
-      token
+      token: refreshToken
     });
     console.log("Data from login request: ", data);
 

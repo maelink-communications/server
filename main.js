@@ -10,6 +10,7 @@ import { log } from "./logging.js";
 import * as keys from "./keys.js";
 import * as socket from "./socket.js";
 import * as version from "./version.js";
+import * as rate from "./ratelimit.js";
 import { getCookies } from "@std/http/cookie";
 import { encodeHex } from "@std/encoding";
 
@@ -114,15 +115,15 @@ async function handler(req, ctx) {
   log(`Incoming request: ${method} ${pathname}`, "blue");
   log(`Path parts: ${pathParts.join(", ")}`, "blue");
   if (method === "OPTIONS") {
-    if (auth.rateLimited(`options:${ip}`)) {
+    if (rate.rateLimited(`options:${ip}`)) {
       return json({ error: true, message: "Rate limit exceeded" }, 429);
     }
-    auth.rateLimit(`options:${ip}`, 60, 60);
+    rate.rateLimit(`options:${ip}`, 60, 60);
     return json({ error: false });
   }
 
   if (pathParts[0] === "register" && method === "POST") {
-    if (auth.rateLimited(`register:${ip}`)) {
+    if (rate.rateLimited(`register:${ip}`)) {
       return json({ error: true, message: "Rate limit exceeded" }, 429);
     }
     const body = await readJsonBody(req);
@@ -130,11 +131,11 @@ async function handler(req, ctx) {
     const reg = await auth.register(username, password);
     if (!reg) {
       // failed, perhaps the username is taken, relaxed ratelimit
-      auth.rateLimit(`register:${ip}-f`, 5, 30);
+      rate.rateLimit(`register:${ip}-f`, 5, 30);
       return json({ error: true }, 400);
     };
     // success, apply a stricter ratelimit of 5 per 15 minutes
-    auth.rateLimit(`register:${ip}-s`, 5, 15 * 60);
+    rate.rateLimit(`register:${ip}-s`, 5, 15 * 60);
     return json(
       {
         error: false,
@@ -149,10 +150,10 @@ async function handler(req, ctx) {
   }
 
   if (pathParts[0] === "login" && method === "POST") {
-    if (auth.rateLimited(`login:i:${ip}`)) {
+    if (rate.rateLimited(`login:i:${ip}`)) {
       return json({ error: true, message: "Rate limit exceeded" }, 429);
     }
-    auth.rateLimit(`login:i:${ip}`, 10, 60);
+    rate.rateLimit(`login:i:${ip}`, 10, 60);
     const body = await readJsonBody(req);
     const { username, password, token, setCookie = false } = body;
     const cookies = getCookies(req.headers);
@@ -161,17 +162,15 @@ async function handler(req, ctx) {
     let user;
     if (token) {
       user = await auth.loginToken(token);
-    } else if (token2) {
-      user = await auth.loginToken(token2);
     } else {
       user = await auth.login(username, password);
     }
     if (!user) {
-      auth.rateLimit(`login:i:${ip}-f`, 30, 60 * 60);
-      auth.rateLimit(`login:u:${username}-f`, 5, 5 * 60);
+      rate.rateLimit(`login:i:${ip}-f`, 30, 60 * 60);
+      rate.rateLimit(`login:u:${username}-f`, 5, 5 * 60);
       return json({ error: true }, 401)
     };
-    auth.rateLimit(`login:u:${username}-s`, 5, 5 * 60);
+    rate.rateLimit(`login:u:${username}-s`, 5, 5 * 60);
     return json(
       {
         error: false,
