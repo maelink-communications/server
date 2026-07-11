@@ -2,7 +2,7 @@
 import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
-import { emitHomePost, emitHomePostEdit, emitHomePostDelete } from "./socket.js";
+import { emitHomePost, emitHomePostEdit, emitHomePostDelete, emitHomePostLike } from "./socket.js";
 log("Home module loaded", "gray");
 const db = connectDB();
 
@@ -127,6 +127,7 @@ export async function postLikeSet(token, postId) {
           .run(JSON.stringify(liked), normalizedPostId);
       }
     }
+    emitHomePostLike(postId, JSON.stringify(liked));
     log(`Post ${normalizedPostId} like status updated for user ${id}`, "green");
     return true;
   } catch (e) {
