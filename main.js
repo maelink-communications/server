@@ -11,6 +11,7 @@ import * as keys from "./keys.js";
 import * as socket from "./socket.js";
 import * as version from "./version.js";
 import { getCookies } from "@std/http/cookie";
+import { encodeHex } from "@std/encoding";
 
 await db.initDB();
 await keys.initKeys();
@@ -87,23 +88,53 @@ async function readJsonBody(req) {
   }
 }
 
+// Source - https://stackoverflow.com/a/71011282
+// Posted by jsejcksn
+// Retrieved 2026-07-11, License - CC BY-SA 4.0
+
+function assertIsNetAddr (addr) {
+  if (!['tcp', 'udp'].includes(addr.transport)) {
+    throw new Error('Not a network address');
+  }
+}
+
+function getRemoteAddress (connInfo) {
+  assertIsNetAddr(connInfo.remoteAddr);
+  return connInfo.remoteAddr;
+}
+
 // Handler
 
-async function handler(req) {
+async function handler(req, ctx) {
   const url = new URL(req.url);
+  // this is no longer an IP, it's more of a unique ID
+  const ip = encodeHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(req.headers.get("x-forwarded-for") || getRemoteAddress(ctx))));
   const { pathname, method } = { pathname: url.pathname, method: req.method };
   const pathParts = pathname.split("/").filter(Boolean);
   log(`Incoming request: ${method} ${pathname}`, "blue");
   log(`Path parts: ${pathParts.join(", ")}`, "blue");
   if (method === "OPTIONS") {
+    if (auth.rateLimited(`options:${ip}`)) {
+      return json({ error: true, message: "Rate limit exceeded" }, 429);
+    }
+    auth.rateLimit(`options:${ip}`, 60, 60);
     return json({ error: false });
   }
 
   if (pathParts[0] === "register" && method === "POST") {
+    if (auth.rateLimited(`register:${ip}`)) {
+      return json({ error: true, message: "Rate limit exceeded" }, 429);
+    }
     const body = await readJsonBody(req);
     const { username, password, setCookie = false } = body;
     const reg = await auth.register(username, password);
-    if (!reg) return json({ error: true }, 400);
+    if (!reg) {
+      // failed, perhaps the username is taken, relaxed ratelimit
+      auth.rateLimit(`register:${ip}-f`, 5, 30);
+      return json({ error: true }, 400);
+    };
+    // success, apply a stricter ratelimit of 5 per 15 minutes
+    auth.rateLimit(`register:${ip}-s`, 5, 15 * 60);
     return json(
       {
         error: false,
@@ -118,6 +149,10 @@ async function handler(req) {
   }
 
   if (pathParts[0] === "login" && method === "POST") {
+    if (auth.rateLimited(`login:i:${ip}`)) {
+      return json({ error: true, message: "Rate limit exceeded" }, 429);
+    }
+    auth.rateLimit(`login:i:${ip}`, 10, 60);
     const body = await readJsonBody(req);
     const { username, password, token, setCookie = false } = body;
     const cookies = getCookies(req.headers);
@@ -131,7 +166,12 @@ async function handler(req) {
     } else {
       user = await auth.login(username, password);
     }
-    if (!user) return json({ error: true }, 401);
+    if (!user) {
+      auth.rateLimit(`login:i:${ip}-f`, 30, 60 * 60);
+      auth.rateLimit(`login:u:${username}-f`, 5, 5 * 60);
+      return json({ error: true }, 401)
+    };
+    auth.rateLimit(`login:u:${username}-s`, 5, 5 * 60);
     return json(
       {
         error: false,
@@ -761,9 +801,9 @@ async function handler(req) {
   return json({ error: true }, 404);
 }
 
-Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req) => {
+Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req, ctx) => {
   try {
-    return withCors(await handler(req), req.headers.get("origin"));
+    return withCors(await handler(req, ctx), req.headers.get("origin"));
   } catch (e) {
     console.error("Unhandled server error:", e);
     return new Response(String(e), { status: 500 });
