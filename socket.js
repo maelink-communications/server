@@ -101,8 +101,8 @@ export function emitHomePostEdit(postId, content) {
 export function emitHomePostDelete(postId) {
   broadcast({ type: "home:post:delete", postId });
 }
-export function emitHomePostLike(postId, liked) {
-  broadcast({ type: "home:post:like", postId, liked });
+export function emitHomePostLike(postId, users_liked) {
+  broadcast({ type: "home:post:like", postId, users_liked });
 }
 
 export function emitGuildPost(guildId, post) {
