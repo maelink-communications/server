@@ -274,7 +274,7 @@ RECEIVE: `{ "type": "authenticated", "username": "<USERNAME>" }` on success, or 
 | `home:post`            | post data                    | A new post was created on the home feed  |
 | `home:post:edit`       | `postId, content`            | A home post was edited                   |
 | `home:post:delete`     | `postId`                     | A home post was deleted                  |
-| `home:post:like`       | `postId, liked`              | A home post was liked/unliked            |
+| `home:post:like`       | `postId, users_liked`        | A home post was liked/unliked            |
 | `guild:post`           | `guildId` + post data        | A new post was made in a guild you're in |
 | `guild:update`         | `guildId, name, description` | A guild's info was updated               |
 | `guild:channel:create` | `guildId, channel`           | A channel was created in a guild         |
