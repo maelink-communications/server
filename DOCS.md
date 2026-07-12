@@ -26,14 +26,14 @@ ERROR: HTTP 400 with `{ "error": true }`
 HEADERS: none<br>
 BODY: (JSON) `username, password` keys expected<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "user": { "uuid": "<UUID>", "username": "<USERNAME>", "pfp": null, "bio": null, "token": "<ACCESS TOKEN>", "accessToken": "<ACCESS TOKEN>", "refreshToken": "<REFRESH TOKEN>" }, "token": "<ACCESS TOKEN>", "accessToken": "<ACCESS TOKEN>", "refreshToken": "<REFRESH TOKEN>" }`<br>
+BODY: `{ "error": false, "user": { "uuid": "<UUID>", "username": "<USERNAME>", "pfp": null, "bio": null, "token": "<ACCESS TOKEN>", "accessToken": "<ACCESS TOKEN>", "refreshToken": "<REFRESH TOKEN>" } }`<br>
 ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/login`:<br>
 HEADERS: none<br>
 BODY: (JSON) `username, password` keys expected OR `token` key to authenticate with an existing token<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "user": { "uuid": "<UUID>", "username": "<USERNAME>", "pfp": null, "bio": null, "token": "<ACCESS TOKEN>", "accessToken": "<ACCESS TOKEN>", "refreshToken": "<REFRESH TOKEN>" }, "token": "<ACCESS TOKEN>", "accessToken": "<ACCESS TOKEN>", "refreshToken": "<REFRESH TOKEN>" }`<br>
+BODY: `{ "error": false, "user": { "uuid": "<UUID>", "username": "<USERNAME>", "pfp": null, "bio": null, "token": "<ACCESS TOKEN>", "accessToken": "<ACCESS TOKEN>", "refreshToken": "<REFRESH TOKEN>" } }`<br>
 ERROR: HTTP 401 with `{ "error": true }`
 
 *NOTE: Registering and logging in now issue both an access token and a refresh token! The legacy `token` field remains for compatibility and contains the access token. Logging in with an existing token also rotates both tokens and returns the new values.*
