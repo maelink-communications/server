@@ -6,10 +6,11 @@ import { sendMessage } from "./inbox.js";
 import { log } from "./logging.js";
 import * as keys from "./keys.js";
 import { getPrivateKey } from "./keys.js";
-import { TtlCache } from "@std/cache/ttl-cache";
 
 const db = connectDB();
-log("Auth module loaded", "gray");
+if (Deno.env.get("LOG_LEVEL") === "trace") {
+  log("Auth module loaded", "gray");
+}
 
 async function signToken(uuid, username, expiresIn, type) {
   return new jose.SignJWT({ uuid, username, type })
@@ -107,7 +108,6 @@ export async function login(username, password) {
 export async function loginToken(token) {
   if (!token) return false;
   const isValid = await keys.verifyToken(token);
-  log(JSON.stringify(isValid), "yellow");
   const result = db
     .prepare(
       `SELECT username, uuid, pfp, bio FROM users WHERE username = ?`,

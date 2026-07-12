@@ -1,5 +1,6 @@
 // Main logic.
 const SERVER_PORT = Deno.env.get("PORT") || 7000;
+const WS_PORT = Deno.env.get("WS_PORT") || 7001;
 import * as auth from "./auth.js";
 import * as home from "./home.js";
 import * as me from "./me.js";
@@ -13,6 +14,10 @@ import * as version from "./version.js";
 import * as rate from "./ratelimit.js";
 import { getCookies } from "@std/http/cookie";
 import { encodeHex } from "@std/encoding";
+
+if (Deno.env.get("LOG_LEVEL") != "trace" && Deno.env.get("LOG_LEVEL") != "error" && Deno.env.get("LOG_LEVEL") != null) {
+  log("/!\\ Unknown log level was set! Defaulting to 'error'.", "yellow")
+}
 
 await db.initDB();
 await keys.initKeys();
@@ -112,8 +117,10 @@ async function handler(req, ctx) {
   const ip = encodeHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(req.headers.get("x-forwarded-for") || getRemoteAddress(ctx))));
   const { pathname, method } = { pathname: url.pathname, method: req.method };
   const pathParts = pathname.split("/").filter(Boolean);
-  log(`Incoming request: ${method} ${pathname}`, "blue");
-  log(`Path parts: ${pathParts.join(", ")}`, "blue");
+  if (Deno.env.get("LOG_LEVEL") === "trace") {
+    log(`Incoming request: ${method} ${pathname}`, "gray");
+    log(`Path parts: ${pathParts.join(", ")}`, "gray");
+  }
   if (method === "OPTIONS") {
     if (rate.rateLimited(`options:${ip}`)) {
       return json({ error: true, message: "Rate limit exceeded" }, 429);
@@ -140,9 +147,6 @@ async function handler(req, ctx) {
       {
         error: false,
         user: reg,
-        token: reg.accessToken,
-        accessToken: reg.accessToken,
-        refreshToken: reg.refreshToken,
       },
       200,
       setCookie ? buildAuthCookies(reg.accessToken, reg.refreshToken) : [],
@@ -158,7 +162,7 @@ async function handler(req, ctx) {
     const { username, password, token, setCookie = false } = body;
     const cookies = getCookies(req.headers);
     let token2;
-    if (cookies.refreshToken) token2 = cookies.refreshToken;
+    if (cookies.accessToken) token2 = cookies.accessToken;
     let user;
     if (token) {
       user = await auth.loginToken(token);
@@ -177,12 +181,8 @@ async function handler(req, ctx) {
       {
         error: false,
         user: {
-          ...user,
-          token: user.accessToken,
+          ...user
         },
-        token: user.accessToken,
-        accessToken: user.accessToken,
-        refreshToken: user.refreshToken,
       },
       200,
       setCookie ? buildAuthCookies(user.accessToken, user.refreshToken) : [],
@@ -285,7 +285,9 @@ async function handler(req, ctx) {
   if (pathParts[0] === "inbox" && method === "GET") {
     const page = parseInt(url.searchParams.get("page") || "1");
     const token = getToken(req).toString();
-    log(`Fetch messages called with page: ${page}, token: ${token}`, "blue");
+    if (Deno.env.get("LOG_LEVEL") === "trace") {
+      log(`Fetch messages called with page: ${page}, token: ${token}`, "blue");
+    }
     if (!token) return json({ error: true }, 401);
     try {
       const user = await inbox.fetchMessages(token.toString(), page);
@@ -802,7 +804,7 @@ async function handler(req, ctx) {
   return json({ error: true }, 404);
 }
 
-Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req, ctx) => {
+Deno.serve({ port: SERVER_PORT, onListen() {} }, async (req, ctx) => {
   try {
     return withCors(await handler(req, ctx), req.headers.get("origin"));
   } catch (e) {
@@ -811,7 +813,8 @@ Deno.serve({ port: SERVER_PORT, onListen: () => {} }, async (req, ctx) => {
   }
 });
 
-log(`PROTOKOL | Server is running on http://localhost:${SERVER_PORT}`, "magenta");
+log(`maelink - gen2 server [${await version.getVersion()}]`, "#ff5757", 1, 1);
+log(`By maelink communications (and outside contributors!) - made with love from all over the world <3`, "#ff9999", 1, 1);
+log(`HTTP server running at http://localhost:${SERVER_PORT} | WS server running at ws://localhost:${WS_PORT}`, "bgWhite");
 
-// Initialize WS on separate port
 socket.initSocket();

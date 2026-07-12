@@ -96,8 +96,8 @@ Deno.test("API flow", async (t) => {
 
     assert(res.status === 200 || res.status === 201);
     assert(data);
-    assert(data.accessToken, "Register response should include an access token");
-    assert(data.refreshToken, "Register response should include a refresh token");
+    assert(data.user.accessToken, "Register response should include an access token");
+    assert(data.user.refreshToken, "Register response should include a refresh token");
   });
 
   await t.step("Register user with cookie opt-in", async () => {

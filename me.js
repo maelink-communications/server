@@ -2,7 +2,9 @@ import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
 const db = connectDB();
-log("User module loaded", "gray");
+if (Deno.env.get("LOG_LEVEL") === "trace") {
+  log("User module loaded", "gray");
+}
 export async function fetchUser(token, userId) {
   if (!userId || !token) return false;
   try {
@@ -44,8 +46,8 @@ export async function fetchUserPosts(token, userId, p) {
       .prepare(
         `SELECT *, CAST(ts AS REAL) as ts FROM posts WHERE user_id = ? ORDER BY id DESC LIMIT 25 OFFSET ?`,
       )
-      .all(uuid, offset);
-    return posts;
+    const post = posts.all(uuid[0], offset);
+    return post;
   } catch (e) {
     console.log(e);
   }

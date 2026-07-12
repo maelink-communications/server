@@ -1,9 +1,10 @@
 // Database init
 import { Database } from "@db/sqlite";
 import { log } from "./logging.js";
-
-log("DB module loaded", "gray");
-log("Initiating DB...", "gray");
+if (Deno.env.get("LOG_LEVEL") === "trace") {
+  log("DB module loaded", "gray");
+  log("Initiating DB...", "gray");
+}
 const startTime = performance.now();
 const db = new Database("main.db");
 
@@ -174,10 +175,12 @@ function tableExists(tableName) {
 
 function reconcileTable(tableName, preset) {
   if (!tableExists(tableName)) {
-    log(
-      `Table "${tableName}" does not exist yet; skipping reconciliation (will be created by CREATE TABLE IF NOT EXISTS).`,
-      "gray",
-    );
+    if (Deno.env.get("LOG_LEVEL") === "trace") {
+      log(
+        `Table "${tableName}" does not exist yet; skipping reconciliation (will be created by CREATE TABLE IF NOT EXISTS).`,
+        "gray",
+      );
+    }
     return;
   }
 
@@ -193,7 +196,9 @@ function reconcileTable(tableName, preset) {
     const safeDef = sanitizeForAddColumn(rawDef);
     try {
       db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${col} ${safeDef}`);
-      log(`+ Added column "${col}" to "${tableName}"`, "green");
+      if (Deno.env.get("LOG_LEVEL") === "trace") {
+        log(`+ Added column "${col}" to "${tableName}"`, "green");
+      }
     } catch (err) {
       log(
         `/!\\ | Failed to add column "${col}" to "${tableName}": ${err.message}`,
@@ -227,7 +232,9 @@ function reconcileTable(tableName, preset) {
   }
 
   if (toAdd.length === 0 && toDrop.length === 0) {
-    log(`"${tableName}" schema already up to date.`, "gray");
+    if (Deno.env.get("LOG_LEVEL") === "trace") {
+      log(`"${tableName}" schema already up to date.`, "gray");
+    }
   }
 }
 
@@ -423,7 +430,9 @@ export function initDB() {
   reconcileAllTables();
 
   const endTime = performance.now();
-  log(`Done initializing DB.`, "gray");
+  if (Deno.env.get("LOG_LEVEL") === "trace") {
+    log(`Done initializing DB.`, "gray");
+  }
   if (((endTime - startTime) / 1000).toFixed(3) > 1) {
     log(
       `/!\\ | DB initialization took ${((endTime - startTime) / 1000).toFixed(3)}s. If this is not first-time initialization, consider optimizing.`,

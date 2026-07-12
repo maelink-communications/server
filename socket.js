@@ -1,10 +1,13 @@
 // WebSocket handler
+const WS_PORT = Deno.env.get("WS_PORT") || 7001;
 import { verifyToken } from "./keys.js";
 import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 
 const db = connectDB();
-log("Socket module loaded", "gray");
+if (Deno.env.get("LOG_LEVEL") === "trace") {
+  log("Socket module loaded", "gray");
+}
 
 const userSockets = new Map(); // userId -> WebSocket
 const guildRooms = new Map(); // guildId -> Set<userId>
@@ -26,7 +29,7 @@ function broadcastToGuild(guildId, data) {
 }
 
 export function initSocket() {
-  Deno.serve({ port: 7001 }, (req) => {
+  Deno.serve({ port: WS_PORT, onListen() {} }, (req) => {
     if (req.headers.get("upgrade") !== "websocket") {
       return new Response("WebSocket only", { status: 426 });
     }
@@ -68,7 +71,9 @@ export function initSocket() {
               username: payload.username,
             }),
           );
-          log(`User authenticated: ${payload.username}`, "green");
+          if (Deno.env.get("LOG_LEVEL") === "trace") {
+            log(`User authenticated: ${payload.username}`, "gray");
+          }
         } catch (err) {
           ws.send(
             JSON.stringify({ type: "error", message: "Authentication failed" }),
@@ -82,14 +87,14 @@ export function initSocket() {
       if (ws.userId) {
         userSockets.delete(ws.userId);
         for (const members of guildRooms.values()) members.delete(ws.userId);
-        log(`User disconnected: ${ws.username}`, "yellow");
+        if (Deno.env.get("LOG_LEVEL") === "trace") {
+          log(`User disconnected: ${ws.username}`, "grey");
+        }
       }
     };
 
     return response;
   });
-
-  log("WebSocket server running on port 7001", "magenta");
 }
 
 export function emitHomePost(post) {

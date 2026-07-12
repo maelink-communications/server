@@ -1,4 +1,8 @@
 import { TtlCache } from "@std/cache/ttl-cache";
+import { log } from "./logging.js";
+if (Deno.env.get("LOG_LEVEL") === "trace") {
+  log("Ratelimit module loaded", "gray");
+}
 
 // SECURITY: Ratelimits
 // bucketId, requests, seconds

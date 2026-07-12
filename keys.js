@@ -28,7 +28,9 @@ export async function initKeys() {
     _publicKey = publicKey;
     _publicJwk = publicJwk;
   }
-  log("Node keypair ready", "gray");
+  if (Deno.env.get("LOG_LEVEL") === "trace") {
+    log("Node keypair ready", "gray");
+  }
 }
 
 export function getPrivateKey() {

@@ -4,7 +4,9 @@ import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
 import { emitGuildPost, emitGuildUpdate, emitGuildChannelCreate, emitGuildChannelDelete, joinGuildRoom, leaveGuildRoom } from "./socket.js";
 const db = connectDB();
-log("Guilds module loaded", "gray");
+if (Deno.env.get("LOG_LEVEL") === "trace") {
+  log("Guilds module loaded", "gray");
+}
 
 function parseJsonArray(value) {
   if (!value) return [];
@@ -246,7 +248,6 @@ export async function postToGuild(token, guildId, content, channelId, replyTo) {
     const author = stmt[0];
     db.exec(`INSERT INTO guild_posts (guildID, userID, content, channelId, ts, author, reply_to) VALUES (?, ?, ?, ?, ?, ?, ?)`, guildId, id, content, channelId, Date.now(), author, replyTo);
     const post = { guildId, id, content, channelId, ts: Date.now(), author, reply_to: replyTo };
-    log(JSON.stringify(post), "yellow");
     emitGuildPost(guildId, post);
     return post;
   } catch (e) {

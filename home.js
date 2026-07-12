@@ -3,7 +3,9 @@ import { connectDB } from "./db.js";
 import { log } from "./logging.js";
 import { verifyToken } from "./keys.js";
 import { emitHomePost, emitHomePostEdit, emitHomePostDelete, emitHomePostLike } from "./socket.js";
-log("Home module loaded", "gray");
+if (Deno.env.get("LOG_LEVEL") === "trace") {
+  log("Home module loaded", "gray");
+}
 const db = connectDB();
 
 function normalizeId(value) {
@@ -28,7 +30,9 @@ export async function resolveUsername(token) {
 
 export async function createPost(token, content, clientId) {
   if (!token || !content) return false;
-  log(`createPost called with: ${token}, ${content}`);
+  if (Deno.env.get("LOG_LEVEL") === "trace") {
+    log(`createPost called with: ${token}, ${content}`);
+  }
   try {
     const id = await resolveUser(token);
     const author = await resolveUsername(token);
@@ -57,7 +61,9 @@ export async function fetchPosts(page) {
 }
 
 export async function editPost(token, postId, content) {
-  log(`editPost called with: { postId: ${postId}, token: ${token}, content: ${content} }`);
+  if (Deno.env.get("LOG_LEVEL") === "trace") {
+    log(`editPost called with: { postId: ${postId}, token: ${token}, content: ${content} }`);
+  }
   if (!postId || !token) {
     log("Missing postId or token, returning false", "red");
     return false;
@@ -80,7 +86,9 @@ export async function editPost(token, postId, content) {
 }
 
 export async function destroyPost(token, postId) {
-  log(`destroyPost called with: { postId: ${postId}, token: ${token} }`);
+  if (Deno.env.get("LOG_LEVEL") === "trace") {
+    log(`destroyPost called with: { postId: ${postId}, token: ${token} }`);
+  }
   if (!postId || !token) {
     log("Missing postId or token, returning false", "red");
     return false;
@@ -100,7 +108,9 @@ export async function destroyPost(token, postId) {
 }
 
 export async function postLikeSet(token, postId) {
-  log(`postLikeSet called with: { postId: ${postId}, token: ${token} }`);
+  if (Deno.env.get("LOG_LEVEL") === "trace") {
+    log(`postLikeSet called with: { postId: ${postId}, token: ${token} }`);
+  }
   if (!postId || !token) {
     log("Missing postId or token, returning false", "red");
     return false;
@@ -128,7 +138,9 @@ export async function postLikeSet(token, postId) {
       }
     }
     emitHomePostLike(postId, JSON.stringify(liked));
-    log(`Post ${normalizedPostId} like status updated for user ${id}`, "green");
+    if (Deno.env.get("LOG_LEVEL") === "trace") {
+      log(`Post ${normalizedPostId} like status updated for user ${id}`, "gray");
+    }
     return true;
   } catch (e) {
     throw e;
