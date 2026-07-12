@@ -18,6 +18,12 @@ What you can do: Login, register (as of a2), see Home posts (as logged in AND gu
 Where: <https://kabezz.github.io/waechain-maelink/><br>
 GitHub: <https://github.com/Kabezz/waechain-maelink><br>
 **Verified to work on**: v0.4.0
+### Solstice
+By: Milo the Protogen<br>
+What you can do: Login, register, see Home posts, make posts, like posts, delete posts, edit posts, view inbox.<br>
+Where: <https://solstice52.github.io/><br>
+GitHub: <https://github.com/solstice52/solstice52.github.io/><br>
+**Verified to work on**: v0.4.1c
 
 ## Non-public/fully working clients
 
