@@ -9,27 +9,12 @@
 > Documentation is in DOCS.md.
 > If you have any questions, stop by our [Discord server!](https://discord.gg/QVeQBBuK87)
 
-## Checklist...
-
-### Completed
-- User registration and authentication
-- Home feed with pagination
-- Post creation, editing, deletion
-- Post liking system
-- User profiles (view and edit)
-- Inbox messaging system
-- Guilds/Bubbles (create, join, leave, delete)
-- Guild channels (create, edit, delete)
-- Guild messaging
-- Real-time updates via Websockets
-- Guild member listing with usernames
-
 ### In progress / TODO
 - Commenting on posts
 - Replying to posts
-- Settings management
 - Admin/moderator features
-- User roles and permissions
+- Uploads and emojis
+- Compilation process for binary artifacts of the server
 
 ## Running the server
 
