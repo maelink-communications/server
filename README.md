@@ -6,8 +6,8 @@
 - **Socket.io**: `http://localhost:7001`
 
 > [!NOTE]
-> Documentation is in our [Discord server](https://discord.gg/yrr8hepKn).
-> Go check it out!
+> Documentation is in DOCS.md.
+> If you have any questions, stop by our [Discord server!](https://discord.gg/QVeQBBuK87)
 
 ## Checklist...
 
