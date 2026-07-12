@@ -3,7 +3,7 @@
 ## Server Ports
 
 - **HTTP API**: `http://localhost:7000`
-- **Socket.io**: `http://localhost:7001`
+- **WebSocket**: `http://localhost:7001`
 
 > [!NOTE]
 > Documentation is in DOCS.md.
