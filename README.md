@@ -21,5 +21,7 @@
 1. Clone this repo and `cd` into the folder
 2. Ensure you have Deno installed
 3. install required packages with `deno task install`
-4. Run `deno task start` to start the server
-5. Run `deno test.js --allow-all --env-file [-- <args>]` and the program will automatically test endpoints and report errors for you
+4. Set required (and optional) values in your .env file
+5. Run `deno task start` to start the server
+
+OPTIONAL: Run `deno test.js --allow-all --env-file [-- <args>]` and the program will automatically test endpoints and report errors for you
