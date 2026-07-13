@@ -164,12 +164,12 @@ async function handler(req, ctx) {
     let token2;
     if (cookies.refreshToken) token2 = cookies.refreshToken;
     let user;
-    if (token) {
+    if (username && password) {
+      user = await auth.login(username, password);
+    } else if (token) {
       user = await auth.loginToken(token);
     } else if (token2) {
       user = await auth.loginToken(token2);
-    } else {
-      user = await auth.login(username, password);
     }
     if (!user) {
       rate.rateLimit(`login:i:${ip}-f`, 30, 60 * 60);
