@@ -41,6 +41,7 @@ function buildAuthResponse(userRow, accessToken, refreshToken) {
 
 export async function register(username, password) {
   const hashedPassword = await hash(password);
+  const regex = /[a-zA-Z0-9_-]/;
   const hashString =
     typeof hashedPassword === "string"
       ? hashedPassword
@@ -51,6 +52,9 @@ export async function register(username, password) {
   }
   if (username.trim().length > 24) {
     throw new Error("username is too long, must be 24 characters or less");
+  }
+  if (!regex.test(username)) {
+    throw new Error("username contains invalid characters, must conform to [a-zA-Z0-9_-]");
   }
   if (password.trim().length < 6) {
     throw new Error("password is too short, must be 6+ characters");
@@ -74,7 +78,7 @@ export async function register(username, password) {
     } else {
       await sendMessage(
         username,
-        `Welcome, ${username}.\nThis is a work-in-progress version of the server, so things may be unstable.`,
+        `Hello, ${username}!\nWe welcome you with open arms. We hope you enjoy your stay here and have a great time!`,
         "System",
       );
     }
