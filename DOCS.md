@@ -1,4 +1,4 @@
-# API for v0.4.1c
+# API for v0.5.0 [beta]
 
 _Things here will be updated frequently\*._
 
