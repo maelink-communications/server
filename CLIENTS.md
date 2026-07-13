@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > ❌ means that the client is not supported on the latest version of the server, or at least has some pretty bad bugs that break the client.<br>
-> ⚠️ means that the client is supported on the latest server version or is partially supported with minor bugs, and supports *basic* functions, but possibly not more advanced ones like Bubbles or profile editing.
+> ⚠️ means that the client is supported on the latest server version or is partially supported with minor bugs, and supports *basic* functions, but possibly not more advanced ones like Bubbles or profile editing.<br>
 > ✅ means that the client is fully supported, and supports at least a very substantial part of the protocol.
 
 | name                   | capabilities                 | supported?  | latest server version supported:         | github / url            |
