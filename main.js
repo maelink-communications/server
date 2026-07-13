@@ -45,7 +45,6 @@ function json(data, status = 200, cookies = []) {
 }
 
 function buildCookie(name, value, maxAge) {
-  log("👻 partitioning cookie ooo scary ooo 🎃");
   return `__Host-${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}; Partitioned`;
 }
 
@@ -135,6 +134,12 @@ async function handler(req, ctx) {
     }
     const body = await readJsonBody(req);
     const { username, password, setCookie = false } = body;
+    const regex = /^[a-zA-Z0-9_-]+$/;
+    if (!regex.test(username)) {
+      if (Deno.env.get("LOG_LEVEL") === "trace") {
+        log("username contains invalid characters, must conform to [a-zA-Z0-9_-]", "gray");
+      }
+    } else {
     const reg = await auth.register(username, password);
     if (!reg) {
       // failed, perhaps the username is taken, relaxed ratelimit
@@ -151,6 +156,7 @@ async function handler(req, ctx) {
       200,
       setCookie ? buildAuthCookies(reg.accessToken, reg.refreshToken) : [],
     );
+    };
   }
 
   if (pathParts[0] === "login" && method === "POST") {

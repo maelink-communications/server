@@ -41,25 +41,21 @@ function buildAuthResponse(userRow, accessToken, refreshToken) {
 
 export async function register(username, password) {
   const hashedPassword = await hash(password);
-  const regex = /[a-zA-Z0-9_-]/;
   const hashString =
     typeof hashedPassword === "string"
       ? hashedPassword
       : new TextDecoder().decode(hashedPassword);
   const uuid = crypto.randomUUID();
-  if (username.trim().length < 3) {
+  if (username.length < 3) {
     throw new Error("username is too short, must be 3+ characters");
   }
-  if (username.trim().length > 24) {
+  if (username.length > 24) {
     throw new Error("username is too long, must be 24 characters or less");
   }
-  if (!regex.test(username)) {
-    throw new Error("username contains invalid characters, must conform to [a-zA-Z0-9_-]");
-  }
-  if (password.trim().length < 6) {
+  if (password.length < 6) {
     throw new Error("password is too short, must be 6+ characters");
   }
-  if (password.trim().length > 64) {
+  if (password.length > 64) {
     throw new Error("password is too long, must be 64 characters or less");
   }
   try {
