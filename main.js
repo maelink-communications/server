@@ -134,10 +134,10 @@ async function handler(req, ctx) {
     }
     const body = await readJsonBody(req);
     const { username, password, setCookie = false } = body;
-    const regex = /^[a-zA-Z0-9_-]+$/;
+    const regex = /^[a-zA-Z0-9._-]+$/;
     if (!regex.test(username)) {
       if (Deno.env.get("LOG_LEVEL") === "trace") {
-        log("username contains invalid characters, must conform to [a-zA-Z0-9_-]", "gray");
+        log("username contains invalid characters, must conform to [a-zA-Z0-9._-]", "gray");
       }
     } else {
     const reg = await auth.register(username, password);
