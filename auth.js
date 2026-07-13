@@ -34,7 +34,6 @@ function buildAuthResponse(userRow, accessToken, refreshToken) {
     username: userRow.username,
     pfp: userRow.pfp,
     bio: userRow.bio,
-    token: accessToken,
     accessToken,
     refreshToken,
   };
