@@ -56,6 +56,9 @@ export async function register(username, password) {
   if (password.trim().length < 6) {
     throw new Error("password is too short, must be 6+ characters");
   }
+  if (password.trim().length > 64) {
+    throw new Error("password is too long, must be 64 characters or less");
+  }
   try {
     const accessToken = await signAccessToken(uuid, username);
     const refreshToken = await signRefreshToken(uuid, username);
