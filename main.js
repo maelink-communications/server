@@ -162,7 +162,7 @@ async function handler(req, ctx) {
     const { username, password, token, setCookie = false } = body;
     const cookies = getCookies(req.headers);
     let token2;
-    if (cookies.accessToken) token2 = cookies.accessToken;
+    if (cookies.refreshToken) token2 = cookies.refreshToken;
     let user;
     if (token) {
       user = await auth.loginToken(token);
