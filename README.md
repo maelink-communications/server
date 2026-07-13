@@ -1,12 +1,8 @@
 <a href="https://ibb.co/h11T3vTV"><img src="https://i.ibb.co/3YYPgHPc/banner-protokol.png" alt="banner-protokol" border="0"></a>
 
-## Server Ports
-
-- **HTTP API**: `http://localhost:7000`
-- **WebSocket**: `http://localhost:7001`
-
 > [!NOTE]
-> Documentation is in DOCS.md.
+> A basic client list can be found in CLIENTS.md.<br>
+> Documentation is in DOCS.md.<br>
 > If you have any questions, stop by our [Discord server!](https://discord.gg/QVeQBBuK87)
 
 ### In progress / TODO
