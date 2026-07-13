@@ -45,7 +45,8 @@ function json(data, status = 200, cookies = []) {
 }
 
 function buildCookie(name, value, maxAge) {
-  return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
+  log("👻 partitioning cookie ooo scary ooo 🎃");
+  return `__Host-${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}; Partitioned`;
 }
 
 function buildAuthCookies(accessToken, refreshToken) {
@@ -76,14 +77,13 @@ function withCors(response, origin) {
 
 function getToken(req) {
   if (req.headers.get("Authorization")) return req.headers.get("Authorization").split(" ")[1];
-  if (req.headers.get("Cookie")) return getCookies(req.headers).accessToken || getCookies(req.headers).refreshToken;
+  if (req.headers.get("Cookie")) return getCookies(req.headers)["__Host-accessToken"] || getCookies(req.headers)["__Host-refreshToken"];
   return null;
 }
 
 async function readJsonBody(req) {
   const contentType = req.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) return {};
-
   const text = await req.text();
   if (!text) return {};
 
@@ -162,7 +162,7 @@ async function handler(req, ctx) {
     const { username, password, token, setCookie = false } = body;
     const cookies = getCookies(req.headers);
     let token2;
-    if (cookies.refreshToken) token2 = cookies.refreshToken;
+    if (cookies["__Host-refreshToken"]) token2 = cookies["__Host-refreshToken"];
     let user;
     if (username && password) {
       user = await auth.login(username, password);
