@@ -51,7 +51,7 @@ ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/home`<br>
 HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
-BODY: (JSON) `content` key expected<br>
+BODY: (JSON) `content` key expected, `clientId` key optional (but use is encouraged)<br>
 SUCCESS: HTTP 200<br>
 BODY: `{ "error": false, "content": "Hello", "postId": 1, "postUuid": "<POST UUID>", "ts": 1710000000000, "author": "<USERNAME>", "clientId": "unknown" }`<br>
 ERROR: HTTP 401 with `{ "error": true }` or HTTP 400 with `{ "error": true }`
