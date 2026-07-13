@@ -67,17 +67,18 @@ export async function editUser(token, username, pfp, bio) {
   const updates = [];
   const values = [];
 
-  if (username?.trim().length > 2) {
+  if (username?.trim().length > 2 && username?.trim().length < 25) {
     updates.push("username = ?");
     values.push(username.trim());
   }
 
-  if (pfp?.trim().length > 7) {
+  //                               1234567890
+  if (pfp?.trim().length > 9) { // http://a.b
     updates.push("pfp = ?");
     values.push(pfp.trim());
   }
 
-  if (bio?.trim().length > 0) {
+  if (bio?.trim().length > 0 && bio?.trim().length < 1025) {
     updates.push("bio = ?");
     values.push(bio.trim());
   }
