@@ -78,14 +78,15 @@ export async function editPost(token, postId, content) {
     const id = await resolveUser(token);
     const normalizedPostId = normalizeId(postId);
     if (!normalizedPostId) return false;
-    const postUuid = db.prepare(`SELECT uuid FROM posts WHERE id = ?`).value(normalizedPostId);
-    if (!postUuid) return false;
+    const post = db.prepare(`SELECT uuid, user_id FROM posts WHERE id = ?`).get(normalizedPostId);
+    if (!post) return false;
+    if (post.user_id !== id) return false;
     db.prepare(
       `UPDATE posts SET content = ?, ts = ? WHERE id = ? AND user_id = ?`
     ).run(content, Date.now(), normalizedPostId, id);
     const { ts, author } = db.prepare(`SELECT ts, author FROM posts WHERE id = ?`).get(normalizedPostId);
     emitHomePostEdit(postId, content);
-    return { error: false, content, postId, postUuid, ts, author };
+    return { error: false, content, postId, postUuid: post.uuid, ts, author };
   } catch (e) {
     throw e;
   }
