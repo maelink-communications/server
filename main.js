@@ -325,7 +325,7 @@ async function handler(req, ctx) {
     }
   }
 
-  if (pathParts[0] === "guilds" && method === "GET") {
+  if (pathParts[0] === "guilds" && method === "GET" && !pathParts[1]) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const { page } = parseInt(url.searchParams.get("page") || "1");
