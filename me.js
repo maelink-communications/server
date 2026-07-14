@@ -5,18 +5,18 @@ const db = connectDB();
 if (Deno.env.get("LOG_LEVEL") === "trace") {
   log("User module loaded", "gray");
 }
-export async function fetchUser(token, userId) {
-  if (!userId || !token) return false;
+export async function fetchUser(token, username) {
+  if (!username || !token) return false;
   try {
     const payload = await verifyToken(token);
     if (!payload) return false;
     const user = db
       .prepare(
-        `SELECT u.username, u.pfp, u.bio,
+        `SELECT u.username, u.pfp, u.bio, u.uuid,
          (SELECT COUNT(*) FROM followers WHERE followedID = u.uuid) as follower_count
-         FROM users u WHERE u.uuid = ?`,
+         FROM users u WHERE u.username = ?`,
       )
-      .value(userId);
+      .value(username);
 
     if (!user) return false;
 
@@ -24,7 +24,7 @@ export async function fetchUser(token, userId) {
       .prepare(
         `SELECT u.username FROM followers f JOIN users u ON u.uuid = f.followerID WHERE f.followedID = ?`,
       )
-      .all(userId);
+      .all(user[3]);
 
     return { username: user[0], pfp: user[1], bio: user[2], followers };
   } catch (e) {

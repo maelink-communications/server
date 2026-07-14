@@ -43,7 +43,7 @@ If the client sends `setCookie: true` in the request body, the server will also 
 ## HOME
 
 `GET` from `/home?page=<PAGE NUMBER>`<br>
-HEADERS: none<br>
+HEADERS: `token` key expected if page number is above 1<br>
 BODY: none<br>
 SUCCESS: HTTP 200<br>
 BODY: `{ "error": false, "page": 1, "posts": [ { "id": 1, "user_id": "<UUID>", "author": "<USERNAME>", "uuid": "<POST UUID>", "content": "Hello", "ts": 1710000000000, "client": "unknown", "likes": 0, "users_liked": "[]", "reply_count": 0 } ] }`<br>
@@ -72,11 +72,11 @@ ERROR: HTTP 400 with `{ "error": true }`
 
 ## USERS
 
-`GET` from `/user/<USER'S INTEGER ID>?page=<PAGE NUMBER>`<br>
+`GET` from `/user/<USERNAME>?page=<PAGE NUMBER>`<br>
 HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "user": { "username": "<USERNAME>", "pfp": null, "bio": null, "followers": [] }, "userPosts": [ { "id": 1, "content": "Hello", "author": "<USERNAME>" } ] }`<br>
+BODY: `{ "error": false, "user": { "username": "<USERNAME>", "pfp": null, "bio": null, "uuid": "<UUID>" "followers": [] }, "userPosts": [ { "id": 1, "content": "Hello", "author": "<USERNAME>" } ] }`<br>
 ERROR: HTTP 400 with `{ "error": true }`
 
 `PATCH` to `/user`<br>

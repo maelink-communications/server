@@ -121,7 +121,7 @@ Deno.test("API flow", async (t) => {
     console.log("Data from login request: ", data);
 
     assertEquals(res.status, 200);
-    assert(data && data.user && data.user.token);
+    assert(data && data.user && data.user.accessToken);
     assert(data.user.accessToken, "Login response should include an access token");
     assert(data.user.refreshToken, "Login response should include a refresh token");
 
@@ -210,7 +210,9 @@ Deno.test("API flow", async (t) => {
   });
 
   await t.step("Fetch posts page 2", async () => {
-    const { res, data } = await request("GET", `/home?page=2`, undefined, undefined);
+    const { res, data } = await request("GET", `/home?page=2`, undefined, {
+      Authorization: `Bearer ${token.toString()}`,
+    });
     console.log(`Fetch posts [page 2] response data: ${JSON.stringify(data)}`);
     assertEquals(res.status, 200);
   });
@@ -328,7 +330,7 @@ Deno.test("API flow", async (t) => {
       password: modPassword,
     });
     assertEquals(modLogin.res.status, 200, "Moderator login should succeed");
-    const modToken = modLogin.data?.user?.token;
+    const modToken = modLogin.data?.user?.accessToken;
     assert(modToken, "Moderator token should be present");
 
     const guildHeaders = { Authorization: `Bearer ${token}` };
@@ -474,7 +476,7 @@ Deno.test("API flow", async (t) => {
   await t.step("Get user data", async () => {
     if (!token) return;
 
-    const { res, data } = await request("GET", "/user/" + userId, undefined, {
+    const { res, data } = await request("GET", "/user/" + username, undefined, {
       Authorization: `Bearer ${token}`,
     });
 
@@ -485,7 +487,7 @@ Deno.test("API flow", async (t) => {
   await t.step("Update user", async () => {
     if (!token) return;
 
-    const newUsername = `updated_${username}`;
+    const newUsername = `u_${username}`;
     const newBio = "Updated bio";
 
     const patch = await request(

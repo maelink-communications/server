@@ -51,8 +51,14 @@ export async function createPost(token, content, clientId) {
   }
 }
 
-export async function fetchPosts(page) {
+export async function fetchPosts(page, token) {
   const offset = (page - 1) * 25;
+  if (page > 1) {
+    const payload = await verifyToken(token);
+    if (!payload) {
+      return { error: true, msg: "Token invalid" };
+    }
+  }
   const stmt = db.prepare(
     `SELECT *, CAST(ts AS REAL) as ts FROM posts ORDER BY id DESC LIMIT 25 OFFSET ?`,
   );
