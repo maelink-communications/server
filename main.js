@@ -564,7 +564,7 @@ async function handler(req, ctx) {
       return json({ error: false, joined: true });
     } catch (e) {
       log(e, "red");
-      return json({ error: true, msg: "Something else went wrong", error: e }, 400);
+      return json({ error: true, msg: "Something else went wrong", errormsg: e }, 400);
     }
   }
 
