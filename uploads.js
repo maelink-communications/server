@@ -8,8 +8,13 @@ if (Deno.env.get("LOG_LEVEL") === "trace") {
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_UPLOAD_MB = MAX_UPLOAD_BYTES / (1024 * 1024);
 const MAX_MULTIPART_BYTES = MAX_UPLOAD_BYTES + 256 * 1024;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_TIMER_DELAY_MS = 2_147_000_000;
+const EXPIRY_RETRY_MS = 1000;
 const UPLOADS_PORT = Number(Deno.env.get("UPLOADS_PORT") || 7002);
 const UPLOADS_DIR = resolve(Deno.env.get("UPLOADS_DIR") || "uploads");
+let expiryTimer = null;
+let expiryTimerAt = null;
 
 export class UploadError extends Error {
   constructor(message, status = 400, code = "UPLOAD_ERROR") {
@@ -56,6 +61,25 @@ export function uploadsUpstreamUrl() {
 export function uploadsEnabled() {
   return uploadsOnlyMode() || envFlag("UPLOADS_ENABLED") ||
     Boolean((Deno.env.get("UPLOADS_UPSTREAM_URL") || "").trim());
+}
+
+export function uploadsExpiryDays() {
+  const configured = (Deno.env.get("UPLOADS_EXPIRY_DAYS") || "").trim();
+  if (!configured) return null;
+  const days = Number(configured);
+  if (!Number.isFinite(days) || days < 0) {
+    throw new UploadError(
+      "UPLOADS_EXPIRY_DAYS must be a positive number or 0 to disable expiry",
+      500,
+      "INVALID_UPLOADS_EXPIRY",
+    );
+  }
+  return days === 0 ? null : days;
+}
+
+function uploadsExpiryMs() {
+  const days = uploadsExpiryDays();
+  return days === null ? null : days * DAY_MS;
 }
 
 export function uploadsPublicUrl() {
@@ -110,6 +134,67 @@ function internalUploadPrincipal(req) {
 function safeExtension(filename) {
   const extension = extname(filename || "").toLowerCase();
   return /^\.[a-z0-9]{1,10}$/.test(extension) ? extension : "";
+}
+
+function isUploadId(id) {
+  return /^[0-9a-f-]{36}(?:\.[a-z0-9]{1,10})?$/.test(id);
+}
+
+function fileExpiryAt(stat, expiryMs) {
+  const timestamp = stat.mtime?.getTime() ?? stat.birthtime?.getTime();
+  return timestamp === undefined ? null : timestamp + expiryMs;
+}
+
+function scheduleExpiryCleanup(delayMs) {
+  const expiryMs = uploadsExpiryMs();
+  if (expiryMs === null) return;
+  const delay = Math.max(0, Math.min(delayMs, MAX_TIMER_DELAY_MS));
+  const scheduledAt = Date.now() + delay;
+  if (expiryTimer !== null && expiryTimerAt <= scheduledAt) return;
+  if (expiryTimer !== null) clearTimeout(expiryTimer);
+  expiryTimerAt = scheduledAt;
+  expiryTimer = setTimeout(() => {
+    expiryTimer = null;
+    expiryTimerAt = null;
+    void cleanExpiredUploads();
+  }, delay);
+}
+
+async function cleanExpiredUploads() {
+  const expiryMs = uploadsExpiryMs();
+  if (expiryMs === null) return;
+  const now = Date.now();
+  let nextDelay = null;
+  try {
+    for await (const entry of Deno.readDir(UPLOADS_DIR)) {
+      if (!entry.isFile || !isUploadId(entry.name)) continue;
+      const path = join(UPLOADS_DIR, entry.name);
+      try {
+        const expiresAt = fileExpiryAt(await Deno.stat(path), expiryMs);
+        if (expiresAt === null) continue;
+        if (expiresAt <= now) {
+          await Deno.remove(path);
+          continue;
+        }
+        const remaining = expiresAt - now;
+        nextDelay = nextDelay === null
+          ? remaining
+          : Math.min(nextDelay, remaining);
+      } catch (error) {
+        if (error instanceof Deno.errors.NotFound) continue;
+        log("Could not expire upload " + entry.name + ": " + String(error), "red");
+        nextDelay = nextDelay === null
+          ? EXPIRY_RETRY_MS
+          : Math.min(nextDelay, EXPIRY_RETRY_MS);
+      }
+    }
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      log("Could not scan uploads for expiry: " + String(error), "red");
+      nextDelay = EXPIRY_RETRY_MS;
+    }
+  }
+  if (nextDelay !== null) scheduleExpiryCleanup(nextDelay);
 }
 
 async function writeLimitedBody(body, path, maxBytes = MAX_UPLOAD_BYTES) {
@@ -230,6 +315,8 @@ async function receiveUpload(req) {
   const id = `${crypto.randomUUID()}${safeExtension(filename)}`;
   await Deno.mkdir(UPLOADS_DIR, { recursive: true });
   const size = await writeLimitedBody(body, join(UPLOADS_DIR, id));
+  const expiryMs = uploadsExpiryMs();
+  if (expiryMs !== null) scheduleExpiryCleanup(expiryMs);
   return {
     id,
     url: `${uploadsPublicUrl()}/files/${id}`,
@@ -240,12 +327,19 @@ async function receiveUpload(req) {
 }
 
 async function serveUpload(req, id) {
-  if (!/^[0-9a-f-]{36}(?:\.[a-z0-9]{1,10})?$/.test(id)) {
+  if (!isUploadId(id)) {
     return json({ error: true, message: "File not found" }, 404);
   }
   try {
     const file = await Deno.open(join(UPLOADS_DIR, id), { read: true });
     const stat = await file.stat();
+    const expiryMs = uploadsExpiryMs();
+    const expiresAt = expiryMs === null ? null : fileExpiryAt(stat, expiryMs);
+    if (expiresAt !== null && expiresAt <= Date.now()) {
+      file.close();
+      await Deno.remove(join(UPLOADS_DIR, id)).catch(() => {});
+      return json({ error: true, message: "File not found" }, 404);
+    }
     const headers = new Headers({
       ...corsHeaders(),
       "content-length": String(stat.size),
@@ -356,6 +450,7 @@ export async function uploadsHandler(req) {
         error: false,
         enabled: true,
         maxFileSize: MAX_UPLOAD_BYTES,
+        expiryDays: uploadsExpiryDays(),
       });
     }
     return json({ error: true, message: "Route not found" }, 404);
@@ -416,6 +511,7 @@ export function startUploadsServer() {
     return null;
   }
   Deno.mkdirSync(UPLOADS_DIR, { recursive: true });
+  if (uploadsExpiryMs() !== null) scheduleExpiryCleanup(0);
   const server = Deno.serve(
     { port: UPLOADS_PORT, onListen() {} },
     uploadsHandler,

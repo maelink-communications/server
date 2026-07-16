@@ -54,6 +54,7 @@ If the client sends `setCookie: true` in the request body, the server will also 
 > [!NOTE]
 > Info for server hosts:<br>
 > Uploads are disabled by default. Set `UPLOADS_ENABLED=true` to start the uploads server on `UPLOADS_PORT` (default `7002`). Set `UPLOADS_PUBLIC_URL` when that server is exposed through a public origin or reverse proxy. Files are stored in `UPLOADS_DIR` (default `uploads`) and are limited to 10 MB each.<br>
+> Set `UPLOADS_EXPIRY_DAYS` to a positive number to automatically delete files after that age. Decimal values are supported, so `0.5` means 12 hours. An empty value or `0` disables expiry. Cleanup is scheduled for the next file due to expire, and expired files are also removed immediately if requested.<br>
 > To run a dedicated upload process, set `UPLOADS_ONLY=true`. That process starts only the listener on `UPLOADS_PORT`; the normal HTTP and WebSocket servers remain off. On the normal server, set `UPLOADS_UPSTREAM_URL` to the dedicated process's internal origin. The normal server then proxies `POST /upload` and `GET|HEAD /files/<ID>` to it, and the upstream setting enables uploads without starting a second local upload listener.
 > Set the same long random `UPLOADS_INTERNAL_SECRET` on both processes. The normal server authenticates the caller and uses this secret to pass the uploader identity internally, so the uploads-only process does not need to share the normal server's user database. Set `UPLOADS_PUBLIC_URL` on both processes to the externally reachable normal-server origin; the uploads-only process uses it when constructing returned file URLs.
 
@@ -65,7 +66,7 @@ ERROR: HTTP 413 with code `FILE_TOO_LARGE` when the file exceeds 10 MB<br>
 
 Uploaded files are public at `GET <UPLOADS PUBLIC URL>/files/<ID>`. Uploading requires a valid, unbanned access token. Once uploads are enabled, new profile pictures, guild icons/banners, and post attachments must use URLs returned by this server. Upload the files first, then place their URLs in the normal JSON API request.
 
-`GET /version` exposes upload capability discovery as `uploads: { enabled, url, maxFileSize }` so clients can hide upload controls when the feature is disabled.
+`GET /version` exposes upload capability discovery as `uploads: { enabled, url, maxFileSize, expiryDays }` so clients can hide upload controls when the feature is disabled and display the configured retention period.
 
 ## HOME
 

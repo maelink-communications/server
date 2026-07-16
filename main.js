@@ -2,7 +2,8 @@
 const SERVER_PORT = Deno.env.get("PORT") || 7000;
 const WS_PORT = Deno.env.get("WS_PORT") || 7001;
 const UPLOADS_PORT = Deno.env.get("UPLOADS_PORT") || 7002;
-const EXPOSE_ERROR_STACK = Deno.env.get("EXPOSE_ERROR_STACK")?.toLowerCase() === "true";
+const EXPOSE_ERROR_STACK =
+  Deno.env.get("EXPOSE_ERROR_STACK")?.toLowerCase() === "true";
 import * as auth from "./auth.js";
 import * as home from "./home.js";
 import * as me from "./me.js";
@@ -71,7 +72,8 @@ function json(data, status = 200, cookies = []) {
 function errorJson(
   error,
   status = error instanceof access.AccessError ||
-      error instanceof me.UserError || error instanceof uploads.UploadError
+  error instanceof me.UserError ||
+  error instanceof uploads.UploadError
     ? error.status
     : 500,
 ) {
@@ -80,8 +82,11 @@ function errorJson(
     error: true,
     message: normalized.message || normalized.name || "Unknown error",
   };
-  if (error instanceof access.AccessError || error instanceof me.UserError ||
-    error instanceof uploads.UploadError) {
+  if (
+    error instanceof access.AccessError ||
+    error instanceof me.UserError ||
+    error instanceof uploads.UploadError
+  ) {
     data.code = error.code;
     if (error.details !== undefined) data.details = error.details;
   } else if (EXPOSE_ERROR_STACK) {
@@ -148,10 +153,7 @@ function getPresentedTokens(req) {
   if (authorization) tokens.push(authorization.split(" ")[1]);
   if (req.headers.get("Cookie")) {
     const cookies = getCookies(req.headers);
-    tokens.push(
-      cookies["__Host-accessToken"],
-      cookies["__Host-refreshToken"],
-    );
+    tokens.push(cookies["__Host-accessToken"], cookies["__Host-refreshToken"]);
   }
   return [...new Set(tokens.filter(Boolean))];
 }
@@ -269,22 +271,25 @@ const SET_ENDPOINTS = [
 ];
 
 function matchesEndpointPath(endpoint, pathParts) {
-  return endpoint.path.length === pathParts.length &&
-    endpoint.path.every((part, index) =>
-      part.startsWith(":") || part === pathParts[index]
-    );
+  return (
+    endpoint.path.length === pathParts.length &&
+    endpoint.path.every(
+      (part, index) => part.startsWith(":") || part === pathParts[index],
+    )
+  );
 }
 
 function isSetEndpoint(method, pathParts) {
-  return SET_ENDPOINTS.some((endpoint) =>
-    endpoint.methods.includes(method) &&
-    matchesEndpointPath(endpoint, pathParts)
+  return SET_ENDPOINTS.some(
+    (endpoint) =>
+      endpoint.methods.includes(method) &&
+      matchesEndpointPath(endpoint, pathParts),
   );
 }
 
 function isSetPathname(pathParts) {
   return SET_ENDPOINTS.some((endpoint) =>
-    matchesEndpointPath(endpoint, pathParts)
+    matchesEndpointPath(endpoint, pathParts),
   );
 }
 
@@ -321,14 +326,15 @@ export async function handler(req, ctx) {
   }
 
   const token = getToken(req);
-  const isPublicAuthRoute = pathParts.length === 1 &&
+  const isPublicAuthRoute =
+    pathParts.length === 1 &&
     ["register", "login", "logout", "version"].includes(pathParts[0]);
   const isPublicPage = pathParts.length === 0;
-  const isPublicUploadDownload = ["GET", "HEAD"].includes(method) &&
-    pathParts[0] === "files" && pathParts.length === 2;
-  if (
-    token && !isPublicAuthRoute && !isPublicPage && !isPublicUploadDownload
-  ) {
+  const isPublicUploadDownload =
+    ["GET", "HEAD"].includes(method) &&
+    pathParts[0] === "files" &&
+    pathParts.length === 2;
+  if (token && !isPublicAuthRoute && !isPublicPage && !isPublicUploadDownload) {
     try {
       await access.authenticateToken(token, { requiredType: "access" });
     } catch (error) {
@@ -336,8 +342,8 @@ export async function handler(req, ctx) {
     }
   }
 
-  const isUploadsProxyRoute = pathname === "/upload" ||
-    /^\/files\/[^/]+$/.test(pathname);
+  const isUploadsProxyRoute =
+    pathname === "/upload" || /^\/files\/[^/]+$/.test(pathname);
   if (isUploadsProxyRoute) {
     if (!uploads.uploadsUpstreamUrl()) {
       return json({ error: true, message: "Route not found" }, 404);
@@ -467,11 +473,7 @@ export async function handler(req, ctx) {
       try {
         const revoked = await auth.revokeTokens(token);
         socket.disconnectUser(revoked.userId, "logged_out");
-        return json(
-          { error: false, revoked: true },
-          200,
-          clearAuthCookies(),
-        );
+        return json({ error: false, revoked: true }, 200, clearAuthCookies());
       } catch (error) {
         lastError = error;
       }
@@ -480,7 +482,8 @@ export async function handler(req, ctx) {
   }
 
   if (
-    pathParts[0] === "home" && pathParts.length === 3 &&
+    pathParts[0] === "home" &&
+    pathParts.length === 3 &&
     ["comments", "replies"].includes(pathParts[2])
   ) {
     const token = getToken(req);
@@ -489,18 +492,22 @@ export async function handler(req, ctx) {
     const resource = pathParts[2];
     try {
       if (method === "GET") {
-        const items = resource === "comments"
-          ? await home.fetchComments(token, postId)
-          : await home.fetchReplies(token, postId);
-        if (!items) return json({ error: true, msg: "Couldn't find post" }, 400);
+        const items =
+          resource === "comments"
+            ? await home.fetchComments(token, postId)
+            : await home.fetchReplies(token, postId);
+        if (!items)
+          return json({ error: true, msg: "Couldn't find post" }, 400);
         return json({ error: false, [resource]: items });
       }
       const { content, parentReplyId } = await readJsonBody(req);
       const singular = resource === "comments" ? "comment" : "reply";
-      const item = resource === "comments"
-        ? await home.createComment(token, postId, content)
-        : await home.createReply(token, postId, content, parentReplyId);
-      if (!item) return json({ error: true, msg: `Couldn't create ${singular}` }, 400);
+      const item =
+        resource === "comments"
+          ? await home.createComment(token, postId, content)
+          : await home.createReply(token, postId, content, parentReplyId);
+      if (!item)
+        return json({ error: true, msg: `Couldn't create ${singular}` }, 400);
       return json({ error: false, [singular]: item });
     } catch (e) {
       log(e, "red");
@@ -509,16 +516,20 @@ export async function handler(req, ctx) {
   }
 
   if (
-    pathParts[0] === "home" && pathParts.length === 4 &&
-    ["comments", "replies"].includes(pathParts[2]) && method === "DELETE"
+    pathParts[0] === "home" &&
+    pathParts.length === 4 &&
+    ["comments", "replies"].includes(pathParts[2]) &&
+    method === "DELETE"
   ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     try {
-      const removed = pathParts[2] === "comments"
-        ? await home.deleteComment(token, pathParts[1], pathParts[3])
-        : await home.deleteReply(token, pathParts[1], pathParts[3]);
-      if (!removed) return json({ error: true, msg: "Couldn't delete item" }, 400);
+      const removed =
+        pathParts[2] === "comments"
+          ? await home.deleteComment(token, pathParts[1], pathParts[3])
+          : await home.deleteReply(token, pathParts[1], pathParts[3]);
+      if (!removed)
+        return json({ error: true, msg: "Couldn't delete item" }, 400);
       return json({ error: false, deleted: true });
     } catch (e) {
       log(e, "red");
@@ -617,11 +628,7 @@ export async function handler(req, ctx) {
     }
   }
 
-  if (
-    pathParts[0] === "user" &&
-    pathParts.length === 2 &&
-    method === "GET"
-  ) {
+  if (pathParts[0] === "user" && pathParts.length === 2 && method === "GET") {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const userId = pathParts[1];
@@ -768,7 +775,8 @@ export async function handler(req, ctx) {
   ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
-    const { userId, username, reason, durationSeconds } = await readJsonBody(req);
+    const { userId, username, reason, durationSeconds } =
+      await readJsonBody(req);
     try {
       const ban = await moderation.banUser(
         token,
@@ -1216,7 +1224,8 @@ export async function handler(req, ctx) {
   }
 
   if (
-    pathParts[0] === "guild" && pathParts[2] === "emojis" &&
+    pathParts[0] === "guild" &&
+    pathParts[2] === "emojis" &&
     pathParts.length === 3
   ) {
     const token = getToken(req);
@@ -1224,7 +1233,8 @@ export async function handler(req, ctx) {
     try {
       if (method === "GET") {
         const emojis = await guilds.listGuildEmojis(token, pathParts[1]);
-        if (!emojis) return json({ error: true, msg: "Couldn't fetch emojis" }, 400);
+        if (!emojis)
+          return json({ error: true, msg: "Couldn't fetch emojis" }, 400);
         return json({ error: false, emojis });
       }
       const { name, url: emojiUrl } = await readJsonBody(req);
@@ -1234,7 +1244,8 @@ export async function handler(req, ctx) {
         name,
         emojiUrl,
       );
-      if (!emoji) return json({ error: true, msg: "Couldn't create emoji" }, 400);
+      if (!emoji)
+        return json({ error: true, msg: "Couldn't create emoji" }, 400);
       return json({ error: false, emoji });
     } catch (e) {
       log(e, "red");
@@ -1243,8 +1254,10 @@ export async function handler(req, ctx) {
   }
 
   if (
-    pathParts[0] === "guild" && pathParts[2] === "emojis" &&
-    pathParts.length === 4 && method === "DELETE"
+    pathParts[0] === "guild" &&
+    pathParts[2] === "emojis" &&
+    pathParts.length === 4 &&
+    method === "DELETE"
   ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
@@ -1254,7 +1267,8 @@ export async function handler(req, ctx) {
         pathParts[1],
         pathParts[3],
       );
-      if (!deleted) return json({ error: true, msg: "Couldn't delete emoji" }, 400);
+      if (!deleted)
+        return json({ error: true, msg: "Couldn't delete emoji" }, 400);
       return json({ error: false, deleted: true });
     } catch (e) {
       log(e, "red");
@@ -1263,8 +1277,10 @@ export async function handler(req, ctx) {
   }
 
   if (
-    pathParts[0] === "guild" && pathParts[2] === "posts" &&
-    pathParts[4] === "replies" && pathParts.length === 5
+    pathParts[0] === "guild" &&
+    pathParts[2] === "posts" &&
+    pathParts[4] === "replies" &&
+    pathParts.length === 5
   ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
@@ -1275,7 +1291,8 @@ export async function handler(req, ctx) {
           pathParts[1],
           pathParts[3],
         );
-        if (!replies) return json({ error: true, msg: "Couldn't fetch replies" }, 400);
+        if (!replies)
+          return json({ error: true, msg: "Couldn't fetch replies" }, 400);
         return json({ error: false, replies });
       }
       const { content, attachments } = await readJsonBody(req);
@@ -1286,7 +1303,8 @@ export async function handler(req, ctx) {
         content,
         attachments,
       );
-      if (!reply) return json({ error: true, msg: "Couldn't create reply" }, 400);
+      if (!reply)
+        return json({ error: true, msg: "Couldn't create reply" }, 400);
       return json({ error: false, reply });
     } catch (e) {
       log(e, "red");
@@ -1295,8 +1313,10 @@ export async function handler(req, ctx) {
   }
 
   if (
-    pathParts[0] === "guild" && pathParts[2] === "posts" &&
-    pathParts[4] === "reactions" && pathParts.length === 5
+    pathParts[0] === "guild" &&
+    pathParts[2] === "posts" &&
+    pathParts[4] === "reactions" &&
+    pathParts.length === 5
   ) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
@@ -1307,7 +1327,8 @@ export async function handler(req, ctx) {
           pathParts[1],
           pathParts[3],
         );
-        if (!target) return json({ error: true, msg: "Couldn't fetch reactions" }, 400);
+        if (!target)
+          return json({ error: true, msg: "Couldn't fetch reactions" }, 400);
         return json({ error: false, reactions: target?.reactions ?? [] });
       }
       const { emoji } = await readJsonBody(req);
@@ -1318,7 +1339,8 @@ export async function handler(req, ctx) {
         emoji,
         method === "POST",
       );
-      if (!reaction) return json({ error: true, msg: "Couldn't update reaction" }, 400);
+      if (!reaction)
+        return json({ error: true, msg: "Couldn't update reaction" }, 400);
       return json({ error: false, reaction });
     } catch (e) {
       log(e, "red");
@@ -1333,7 +1355,12 @@ export async function handler(req, ctx) {
     const page = parseInt(url.searchParams.get("page") || "1");
     const channelId = pathParts[2];
     try {
-      const guildposts = await guilds.fetchGuildPosts(token, guildId, page, channelId);
+      const guildposts = await guilds.fetchGuildPosts(
+        token,
+        guildId,
+        page,
+        channelId,
+      );
       if (!guildposts) {
         return json({ error: true, msg: "Couldn't fetch posts" }, 400);
       }
@@ -1415,6 +1442,7 @@ export async function handler(req, ctx) {
           enabled: uploads.uploadsEnabled(),
           url: uploads.uploadsEnabled() ? uploads.uploadsPublicUrl() : null,
           maxFileSize: uploads.MAX_UPLOAD_BYTES,
+          expiryDays: uploads.uploadsExpiryDays(),
         },
       });
     } catch (e) {
@@ -1578,25 +1606,17 @@ export async function handler(req, ctx) {
 }
 
 export function startHttpServer() {
-  return Deno.serve(
-    { port: SERVER_PORT, onListen() {} },
-    async (req, ctx) => {
-      try {
-        return withCors(await handler(req, ctx), req.headers.get("origin"));
-      } catch (e) {
-        console.error("Unhandled server error:", e);
-        return withCors(errorJson(e), req.headers.get("origin"));
-      }
-    },
-  );
+  return Deno.serve({ port: SERVER_PORT, onListen() {} }, async (req, ctx) => {
+    try {
+      return withCors(await handler(req, ctx), req.headers.get("origin"));
+    } catch (e) {
+      console.error("Unhandled server error:", e);
+      return withCors(errorJson(e), req.headers.get("origin"));
+    }
+  });
 }
 
-log(
-  `maelink - gen2 server [${await version.getVersion()}]`,
-  "#ff5757",
-  1,
-  1,
-);
+log(`maelink - gen2 server [${await version.getVersion()}]`, "#ff5757", 1, 1);
 log(
   `By maelink communications (and outside contributors!) - made with love from all over the world <3`,
   "#ff9999",
@@ -1619,8 +1639,8 @@ if (uploads.uploadsOnlyMode()) {
   const uploadsStatus = uploads.uploadsUpstreamUrl()
     ? ` | Uploads upstream: ${uploads.uploadsUpstreamUrl()}`
     : uploads.uploadsEnabled()
-    ? ` | Uploads running at http://localhost:${UPLOADS_PORT} (Limit at ${uploads.MAX_UPLOAD_MB}MB)`
-    : "";
+      ? ` | Uploads running at http://localhost:${UPLOADS_PORT} (Limit at ${uploads.MAX_UPLOAD_MB}MB)`
+      : "";
   log(
     `HTTP server running at http://localhost:${SERVER_PORT} | WS server running at ws://localhost:${WS_PORT}${uploadsStatus}`,
     "#ffffff",
@@ -1628,4 +1648,3 @@ if (uploads.uploadsOnlyMode()) {
     1,
   );
 }
-
