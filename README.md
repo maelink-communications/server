@@ -9,7 +9,7 @@
 - Commenting on posts
 - Replying to posts
 - Admin/moderator features
-- Uploads and emojis
+- Emojis
 - Compilation process for binary artifacts of the server
 
 ## Running the server

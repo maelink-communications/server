@@ -5,7 +5,7 @@ export function log(message, color = "white", hex = 0, bg = 0) { // bg ONLY to b
     let colorFn;
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(3);
     if (hex && bg) {
-        colorFn = chalk.bgHex(color);
+        colorFn = chalk.bgHex(color).black;
     } else if (hex) {
         colorFn = chalk.hex(color);
     } else {

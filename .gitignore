@@ -2,3 +2,5 @@
 node_modules
 *.db
 *.db-journal
+.master-code
+uploads/

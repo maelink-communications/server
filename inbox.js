@@ -45,7 +45,9 @@ export async function fetchMessages(token, page) {
   }
   const offset = (page - 1) * 25;
   const stmt = db.prepare(
-    `SELECT *, CAST(ts AS REAL) as ts FROM inbox WHERE user_id = ? ORDER BY id DESC LIMIT 25 OFFSET ?`,
+    `SELECT id, user_id AS userId, sender_id AS senderId, content,
+            CAST(ts AS REAL) AS ts, read
+     FROM inbox WHERE user_id = ? ORDER BY id DESC LIMIT 25 OFFSET ?`,
   );
   const messages = stmt.all(id, offset);
   return messages;

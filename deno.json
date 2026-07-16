@@ -7,6 +7,7 @@
     "@std/dotenv": "jsr:@std/dotenv@^0.225.7",
     "@std/encoding": "jsr:@std/encoding@^1.0.11",
     "@std/http": "jsr:@std/http@^1.0.21",
+    "@std/path": "jsr:@std/path@^1.1.2",
     "chalk": "npm:chalk@^5.6.2",
     "@emrahcom/jwt": "jsr:@emrahcom/jwt@^0.4.8",
     "@db/sqlite": "jsr:@db/sqlite@^0.13.0",
@@ -21,6 +22,7 @@
   },
   "tasks": {
     "install": "deno cache --reload main.js",
-    "start": "deno run --env-file --allow-all main.js"
+    "start": "deno run --env-file --allow-all main.js",
+    "compile": "deno compile --allow-all --self-extracting --minify --bundle --app-name maelink -o maelink main.js"
   }
 }
