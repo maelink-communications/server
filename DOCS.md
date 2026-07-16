@@ -74,14 +74,14 @@ Uploaded files are public at `GET <UPLOADS PUBLIC URL>/files/<ID>`. Uploading re
 HEADERS: `token` key expected if page number is above 1<br>
 BODY: none<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "page": 1, "posts": [ { "id": 1, "userId": "<UUID>", "author": "<USER DATA>", "uuid": "<POST UUID>", "content": "Hello", "attachments": ["<UPLOAD URL>"], "ts": 1710000000000, "client": "unknown", "likes": 0, "usersLiked": "[]", "replyCount": 0 } ] }`<br>
+BODY: `{ "error": false, "page": 1, "posts": [ { "id": 1, "userId": "<UUID>", "author": { "uuid": "<UUID>", "username": "<USERNAME>", "bio": null }, "uuid": "<POST UUID>", "content": "Hello", "attachments": ["<UPLOAD URL>"], "ts": 1710000000000, "client": "unknown", "likes": 0, "usersLiked": "[]", "replyCount": 0 } ] }`<br>
 ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/home`<br>
 HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: (JSON) `content`, optional `attachments` array (up to 10 URLs), and optional `clientId`. A post needs content, an attachment, or both.<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "content": "Hello", "attachments": ["<UPLOAD URL>"], "postId": 1, "postUuid": "<POST UUID>", "ts": 1710000000000, "author": "<USERNAME>", "clientId": "unknown" }`<br>
+BODY: `{ "error": false, "content": "Hello", "attachments": ["<UPLOAD URL>"], "postId": 1, "postUuid": "<POST UUID>", "ts": 1710000000000, "author": { "uuid": "<UUID>", "username": "<USERNAME>", "bio": null }, "clientId": "unknown" }`<br>
 ERROR: HTTP 401 with `{ "error": true }` or HTTP 400 with `{ "error": true }`
 
 `PATCH` to `/home`<br>
@@ -104,7 +104,7 @@ ERROR: HTTP 400 with `{ "error": true }`
 `DELETE` `/home/<POST ID OR UUID>/comments/<COMMENT ID OR UUID>` deletes the caller's comment.<br>
 `GET` or `POST` `/home/<POST ID OR UUID>/replies` lists replies or creates one with `{ "content": "...", "parentReplyId": "<OPTIONAL REPLY ID OR UUID>" }`.<br>
 `DELETE` `/home/<POST ID OR UUID>/replies/<REPLY ID OR UUID>` deletes the caller's reply and its descendants.<br>
-All routes require `Authorization: Bearer <ACCESS TOKEN>`. Comment and reply results include the author's username and profile picture. Posts expose `commentCount` and `replyCount`.
+All routes require `Authorization: Bearer <ACCESS TOKEN>`. Comment and reply results include the author's username and profile picture. Post `author` values contain the user's `uuid`, `username`, and `bio`; upload-backed `pfp` data is omitted. Posts expose `commentCount` and `replyCount`.
 
 ## USERS
 
@@ -112,7 +112,7 @@ All routes require `Authorization: Bearer <ACCESS TOKEN>`. Comment and reply res
 HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "user": { "username": "<USERNAME>", "pfp": null, "bio": null, "uuid": "<UUID>", "followerCount": 1, "followingCount": 2, "relationship": { "following": true, "followedBy": false, "mutual": false }, "followers": [] }, "userPosts": [ { "id": 1, "content": "Hello", "author": "<USERNAME>" } ] }`<br>
+BODY: `{ "error": false, "user": { "username": "<USERNAME>", "pfp": null, "bio": null, "uuid": "<UUID>", "followerCount": 1, "followingCount": 2, "relationship": { "following": true, "followedBy": false, "mutual": false }, "followers": [] }, "userPosts": [ { "id": 1, "content": "Hello", "author": { "uuid": "<UUID>", "username": "<USERNAME>", "bio": null } } ] }`<br>
 ERROR: HTTP 400 with `{ "error": true }`
 
 `PATCH` to `/user`<br>
@@ -185,7 +185,7 @@ ERROR: HTTP 400 with `{ "error": true }`
 HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "posts": [ { "guildId": "<GUILD UUID>", "id": 1, "content": "Hello", "channelId": "general", "ts": 1710000000000, "author": "<USERNAME>" } ] }`<br>
+BODY: `{ "error": false, "posts": [ { "guildId": "<GUILD UUID>", "id": 1, "content": "Hello", "channelId": "general", "ts": 1710000000000, "author": { "uuid": "<UUID>", "username": "<USERNAME>", "bio": null } } ] }`<br>
 ERROR: HTTP 400 with `{ "error": true }`
 
 `PATCH` to `/guild/<GUILD UUID>`<br>
@@ -206,7 +206,7 @@ ERROR: HTTP 400 with `{ "error": true }`
 HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: (JSON) `content`, optional `attachments` array (up to 10 URLs), and optional `replyTo`. A post needs content, an attachment, or both.<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "post": { "guildId": "<GUILD UUID>", "id": 1, "content": "Hello", "channelId": "<CHANNEL UUID>", "ts": 1710000000000, "author": "<USERNAME>" } }`<br>
+BODY: `{ "error": false, "post": { "guildId": "<GUILD UUID>", "id": 1, "content": "Hello", "channelId": "<CHANNEL UUID>", "ts": 1710000000000, "author": { "uuid": "<UUID>", "username": "<USERNAME>", "bio": null } } }`<br>
 ERROR: HTTP 400 with `{ "error": true }`
 
 ### Guild replies, reactions, and custom emojis
@@ -250,7 +250,7 @@ ERROR: HTTP 400 with `{ "error": true }`
 HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "channels": [ { "id": "general", "name": "general", "posts": [ { "content": "Hello", "author": "<USERNAME>" } ] } ] }`<br>
+BODY: `{ "error": false, "channels": [ { "id": "general", "name": "general", "posts": [ { "content": "Hello", "author": { "uuid": "<UUID>", "username": "<USERNAME>", "bio": null } } ] } ] }`<br>
 ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/guild/channels`<br>

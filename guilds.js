@@ -51,8 +51,11 @@ function publicGuild(guild) {
 function guildPostById(guildId, postId) {
   if (postId === undefined || postId === null) return null;
   return db.prepare(
-    `SELECT * FROM guild_posts
-     WHERE guildID = ? AND CAST(id AS TEXT) = ?`,
+    `SELECT gp.*, u.uuid AS authorUuid, u.username AS authorUsername,
+            u.bio AS authorBio
+     FROM guild_posts gp
+     LEFT JOIN users u ON u.uuid = gp.userID
+     WHERE gp.guildID = ? AND CAST(gp.id AS TEXT) = ?`,
   ).get(guildId, String(postId));
 }
 
@@ -88,7 +91,11 @@ function withGuildState(post, viewerId) {
     ts: post.ts,
     content: post.content,
     channelId: post.channelId,
-    author: post.author,
+    author: {
+      uuid: post.authorUuid ?? post.userID,
+      username: post.authorUsername ?? post.author,
+      bio: post.authorBio ?? null,
+    },
     replyTo: typeof post.reply_to === "string" && /^\d+$/.test(post.reply_to)
       ? Number(post.reply_to)
       : post.reply_to,
@@ -331,13 +338,19 @@ export async function postToGuild(token, guildId, content, channelId, replyTo, a
     }
     const attachments = normalizeAttachments(attachmentsValue);
     if ((!content || !String(content).trim()) && attachments.length === 0) return false;
-    const stmt = db.prepare(`SELECT username FROM users WHERE uuid = ?`).value(id) ?? null;
-    const author = stmt[0];
+    const author = db.prepare(
+      `SELECT username FROM users WHERE uuid = ?`,
+    ).get(id);
+    if (!author) return false;
     const ts = Date.now();
-    db.exec(`INSERT INTO guild_posts (guildID, userID, content, channelId, ts, author, reply_to, attachments) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, guildId, id, content || "", channelId, ts, author, replyTarget?.id ?? null, JSON.stringify(attachments));
+    db.exec(`INSERT INTO guild_posts (guildID, userID, content, channelId, ts, author, reply_to, attachments) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, guildId, id, content || "", channelId, ts, author.username, replyTarget?.id ?? null, JSON.stringify(attachments));
     const created = db.prepare(
-      `SELECT * FROM guild_posts WHERE guildID = ? AND userID = ? AND ts = ?
-       ORDER BY id DESC LIMIT 1`,
+      `SELECT gp.*, u.uuid AS authorUuid, u.username AS authorUsername,
+              u.bio AS authorBio
+       FROM guild_posts gp
+       LEFT JOIN users u ON u.uuid = gp.userID
+       WHERE gp.guildID = ? AND gp.userID = ? AND gp.ts = ?
+       ORDER BY gp.id DESC LIMIT 1`,
     ).get(guildId, id, ts);
     const post = withGuildState(created, id);
     emitGuildPost(guildId, post);
@@ -370,8 +383,12 @@ export async function fetchGuildReplies(token, guildId, postId) {
     return false;
   }
   return db.prepare(
-    `SELECT * FROM guild_posts WHERE guildID = ? AND reply_to = ?
-     ORDER BY id ASC`,
+    `SELECT gp.*, u.uuid AS authorUuid, u.username AS authorUsername,
+            u.bio AS authorBio
+     FROM guild_posts gp
+     LEFT JOIN users u ON u.uuid = gp.userID
+     WHERE gp.guildID = ? AND gp.reply_to = ?
+     ORDER BY gp.id ASC`,
   ).all(guildId, target.id).map((post) => withGuildState(post, payload.uuid));
 }
 
@@ -620,7 +637,12 @@ export async function fetchGuildChannels(token, guildId) {
   if (isUserBanned(guildId, payload.uuid)) return false;
   const channels = parseJsonArray(guild?.channels ?? "[]");
   const posts = db.prepare(
-    `SELECT *, CAST(ts AS REAL) as ts FROM guild_posts WHERE guildID = ? ORDER BY id DESC`
+    `SELECT gp.*, CAST(gp.ts AS REAL) AS ts,
+            u.uuid AS authorUuid, u.username AS authorUsername,
+            u.bio AS authorBio
+     FROM guild_posts gp
+     LEFT JOIN users u ON u.uuid = gp.userID
+     WHERE gp.guildID = ? ORDER BY gp.id DESC`
   ).all(guildId).map((post) => withGuildState(post, payload.uuid));
   return channels
     .filter((ch) => canAccessChannel(guildId, payload.uuid, ch.id, "view"))
@@ -641,7 +663,13 @@ export async function fetchGuildPosts(token, guildId, page, channelId = null) {
   const targetChannel = channelId || "general";
   if (!canAccessChannel(guildId, payload.uuid, targetChannel, "history")) return false;
   return db.prepare(
-    `SELECT *, CAST(ts AS REAL) as ts FROM guild_posts WHERE guildID = ? AND channelId = ? ORDER BY id DESC LIMIT 25 OFFSET ?`
+    `SELECT gp.*, CAST(gp.ts AS REAL) AS ts,
+            u.uuid AS authorUuid, u.username AS authorUsername,
+            u.bio AS authorBio
+     FROM guild_posts gp
+     LEFT JOIN users u ON u.uuid = gp.userID
+     WHERE gp.guildID = ? AND gp.channelId = ?
+     ORDER BY gp.id DESC LIMIT 25 OFFSET ?`
   ).all(guildId, targetChannel, (page - 1) * 25)
     .map((post) => withGuildState(post, payload.uuid));
 }

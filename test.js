@@ -277,6 +277,10 @@ Deno.test("API flow", async (t) => {
     assertEquals(res.status, 200);
     postId = data.postId;
     postUuid = data.postUuid;
+    assertEquals(data.author.uuid, userId);
+    assertEquals(data.author.username, username);
+    assertEquals(Object.hasOwn(data.author, "bio"), true);
+    assertEquals(Object.hasOwn(data.author, "pfp"), false);
 
     // Verify in local DB
     const dbPost = await verifyPostInDB(db, postUuid, true);
@@ -392,6 +396,10 @@ Deno.test("API flow", async (t) => {
     const fetchedPost = data.posts.find((post) => post.uuid === postUuid);
     assert(fetchedPost, "Created post should be returned");
     assertEquals(fetchedPost.userId, userId);
+    assertEquals(fetchedPost.author.uuid, userId);
+    assertEquals(fetchedPost.author.username, username);
+    assertEquals(Object.hasOwn(fetchedPost.author, "bio"), true);
+    assertEquals(Object.hasOwn(fetchedPost.author, "pfp"), false);
     assertEquals(Object.hasOwn(fetchedPost, "user_id"), false);
     assertEquals(Object.hasOwn(fetchedPost, "users_liked"), false);
     assertEquals(Object.hasOwn(fetchedPost, "reply_count"), false);
@@ -588,6 +596,10 @@ Deno.test("API flow", async (t) => {
       if (guildPostId) {
         assertEquals(postToGuild.data.post.guildId, guildId);
         assertEquals(postToGuild.data.post.userId, userId);
+        assertEquals(postToGuild.data.post.author.uuid, userId);
+        assertEquals(postToGuild.data.post.author.username, username);
+        assertEquals(Object.hasOwn(postToGuild.data.post.author, "bio"), true);
+        assertEquals(Object.hasOwn(postToGuild.data.post.author, "pfp"), false);
         assertEquals(Object.hasOwn(postToGuild.data.post, "guildID"), false);
         assertEquals(Object.hasOwn(postToGuild.data.post, "userID"), false);
         const reply = await request(

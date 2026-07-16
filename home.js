@@ -22,11 +22,21 @@ async function resolveUser(token) {
   return payload.uuid;
 }
 
-export async function resolveUsername(token) {
+async function resolveAuthor(token) {
   const payload = await verifyToken(token);
-  const user = db.prepare(`SELECT username FROM users WHERE uuid = ?`).value(payload.uuid);
+  const user = db.prepare(
+    `SELECT uuid, username, bio FROM users WHERE uuid = ?`,
+  ).get(payload.uuid);
   if (!user) throw new Error("User not found");
-  return user[0];
+  return user;
+}
+
+function postAuthor(post) {
+  return {
+    uuid: post.authorUuid ?? post.user_id,
+    username: post.authorUsername ?? post.author,
+    bio: post.authorBio ?? null,
+  };
 }
 
 function publicPost(post) {
@@ -39,7 +49,7 @@ function publicPost(post) {
   return {
     id: post.id,
     userId: post.user_id,
-    author: post.author,
+    author: postAuthor(post),
     uuid: post.uuid,
     content: post.content,
     ts: post.ts,
@@ -203,8 +213,8 @@ export async function createPost(token, content, clientId, attachmentsValue) {
     log(`createPost called with: ${token}, ${content}`);
   }
   try {
-    const id = await resolveUser(token);
-    const author = await resolveUsername(token);
+    const author = await resolveAuthor(token);
+    const id = author.uuid;
     const ts = Date.now();
     const postUuid = crypto.randomUUID();
     const attachments = normalizeAttachments(attachmentsValue);
@@ -213,10 +223,19 @@ export async function createPost(token, content, clientId, attachmentsValue) {
     }
     db.prepare(
       `INSERT INTO posts (uuid, user_id, content, ts, author, client, attachments) VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(postUuid, id, content || "", ts, author, clientId || "unknown", JSON.stringify(attachments));
+    ).run(postUuid, id, content || "", ts, author.username, clientId || "unknown", JSON.stringify(attachments));
     const createdPost = db.prepare(`SELECT id FROM posts WHERE uuid = ?`).get(postUuid);
     const postId = normalizeId(createdPost?.id ?? null);
-    const post = { error: false, content: content || "", postId, postUuid, ts, author, clientId, attachments };
+    const post = {
+      error: false,
+      content: content || "",
+      postId,
+      postUuid,
+      ts,
+      author,
+      clientId,
+      attachments,
+    };
     emitHomePost(post);
     return post;
   } catch (e) {
@@ -233,7 +252,12 @@ export async function fetchPosts(page, token) {
     }
   }
   const stmt = db.prepare(
-    `SELECT *, CAST(ts AS REAL) as ts FROM posts ORDER BY id DESC LIMIT 25 OFFSET ?`,
+    `SELECT p.*, CAST(p.ts AS REAL) AS ts,
+            u.uuid AS authorUuid, u.username AS authorUsername,
+            u.bio AS authorBio
+     FROM posts p
+     LEFT JOIN users u ON u.uuid = p.user_id
+     ORDER BY p.id DESC LIMIT 25 OFFSET ?`,
   );
   const posts = stmt.all(offset).map(publicPost);
   return posts;

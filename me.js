@@ -101,9 +101,13 @@ export async function fetchUserPosts(token, identifier, page = 1) {
   const user = targetUser(identifier);
   const { offset } = pageOffset(page);
   return db.prepare(
-    `SELECT *, CAST(ts AS REAL) AS ts
-     FROM posts WHERE user_id = ?
-     ORDER BY id DESC LIMIT ? OFFSET ?`,
+    `SELECT p.*, CAST(p.ts AS REAL) AS ts,
+            u.uuid AS authorUuid, u.username AS authorUsername,
+            u.bio AS authorBio
+     FROM posts p
+     LEFT JOIN users u ON u.uuid = p.user_id
+     WHERE p.user_id = ?
+     ORDER BY p.id DESC LIMIT ? OFFSET ?`,
   ).all(user.uuid, PAGE_SIZE, offset).map((post) => {
     let attachments;
     try {
@@ -114,7 +118,11 @@ export async function fetchUserPosts(token, identifier, page = 1) {
     return {
       id: post.id,
       userId: post.user_id,
-      author: post.author,
+      author: {
+        uuid: post.authorUuid ?? post.user_id,
+        username: post.authorUsername ?? post.author,
+        bio: post.authorBio ?? null,
+      },
       uuid: post.uuid,
       content: post.content,
       ts: post.ts,
