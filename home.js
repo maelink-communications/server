@@ -291,7 +291,7 @@ export async function createPost(token, content, clientId, attachmentsValue) {
       postUuid,
       ts,
       author,
-      clientId,
+      clientId: clientId || "unknown",
       likes: 0,
       usersLiked: 0,
       replyCount: 0,
