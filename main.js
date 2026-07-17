@@ -946,7 +946,20 @@ export async function handler(req, ctx) {
     const page = parseInt(url.searchParams.get("page") || "1");
     if (!token) return json({ error: true }, 401);
     const guildId = pathParts[2];
+    const channelId = pathParts[3];
     try {
+      if (channelId) {
+        const guildposts = await guilds.fetchGuildPosts(
+          token,
+          guildId,
+          page,
+          channelId,
+        );
+        if (!guildposts) {
+          return json({ error: true, msg: "Couldn't fetch posts" }, 400);
+        }
+        return json({ error: false, posts: guildposts });
+      }
       const channels = await guilds.fetchGuildChannels(token, guildId, page);
       if (!channels) {
         return json({ error: true, msg: "Couldn't fetch channels" }, 400);
