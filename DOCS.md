@@ -74,7 +74,7 @@ Uploaded files are public at `GET <UPLOADS PUBLIC URL>/files/<ID>`. Uploading re
 HEADERS: `token` key expected if page number is above 1<br>
 BODY: none<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "page": 1, "posts": [ { "id": 1, "userId": "<UUID>", "author": { "uuid": "<UUID>", "username": "<USERNAME>", "bio": null }, "uuid": "<POST UUID>", "content": "Hello", "attachments": ["<UPLOAD URL>"], "ts": 1710000000000, "clientId": "unknown", "likes": 0, "usersLiked": "[]", "replyCount": 0 } ] }`<br>
+BODY: `{ "error": false, "page": 1, "posts": [ { "id": 1, "userId": "<UUID>", "author": { "uuid": "<UUID>", "username": "<USERNAME>", "bio": null }, "uuid": "<POST UUID>", "content": "Hello", "attachments": ["<UPLOAD URL>"], "ts": 1710000000000, "clientId": "unknown", "likes": 0, "usersLiked": [], "replyCount": 0 } ] }`<br>
 ERROR: HTTP 400 with `{ "error": true }`
 
 `POST` to `/home`<br>

@@ -78,6 +78,15 @@ function relationship(viewerId, targetId) {
   return { following, followedBy, mutual: following && followedBy };
 }
 
+function likedUsers(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchUser(token, identifier) {
   const viewer = await authenticatedUser(token);
   const user = targetUser(identifier);
@@ -128,7 +137,7 @@ export async function fetchUserPosts(token, identifier, page = 1) {
       ts: post.ts,
       client: post.client,
       likes: post.likes,
-      usersLiked: post.users_liked,
+      usersLiked: likedUsers(post.users_liked),
       replyCount: post.reply_count,
       commentCount: post.comment_count,
       attachments,

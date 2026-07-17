@@ -63,7 +63,7 @@ function publicPost(post) {
     ts: post.ts,
     clientId: post.client,
     likes: post.likes,
-    usersLiked: post.users_liked,
+    usersLiked: likedUsers(post.users_liked),
     replyCount: post.reply_count,
     commentCount: post.comment_count,
     attachments,
@@ -86,6 +86,15 @@ function publicDiscussion(row) {
   }
   if (Object.hasOwn(row, "likes")) result.likes = row.likes;
   return result;
+}
+
+function likedUsers(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function resolvePost(postId) {
@@ -276,7 +285,7 @@ export async function createPost(token, content, clientId, attachmentsValue) {
       clientId || "unknown",
       JSON.stringify(attachments),
       0,
-      0,
+      "[]",
       0,
       0,
     );
@@ -293,7 +302,7 @@ export async function createPost(token, content, clientId, attachmentsValue) {
       author,
       clientId: clientId || "unknown",
       likes: 0,
-      usersLiked: 0,
+      usersLiked: [],
       replyCount: 0,
       commentCount: 0,
       attachments,
@@ -403,7 +412,7 @@ export async function postLikeSet(token, postId) {
       log(`Post ${normalizedPostId} not found`, "red");
       return false;
     }
-    const liked = JSON.parse(post.users_liked || "[]");
+    const liked = likedUsers(post.users_liked);
     if (!liked.includes(id)) {
       liked.push(id);
       db.prepare(
