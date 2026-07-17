@@ -53,7 +53,7 @@ function publicPost(post) {
     uuid: post.uuid,
     content: post.content,
     ts: post.ts,
-    client: post.client,
+    clientId: post.client,
     likes: post.likes,
     usersLiked: post.users_liked,
     replyCount: post.reply_count,
