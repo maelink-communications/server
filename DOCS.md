@@ -86,7 +86,7 @@ ERROR: HTTP 401 with `{ "error": true }` or HTTP 400 with `{ "error": true }`
 
 `PATCH` to `/home`<br>
 HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
-BODY: (JSON) `postId` required, `content` or `like` optional<br>
+BODY: (JSON) `postId` required, `content` or boolean `like` optional. `like: true` likes the post and `like: false` unlikes it; `postId` may be the numeric ID or post UUID.<br>
 SUCCESS: HTTP 200<br>
 BODY: `{ "error": false }`<br>
 ERROR: HTTP 400 with `{ "error": true }`

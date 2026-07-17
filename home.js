@@ -393,7 +393,7 @@ export async function destroyPost(token, postId) {
   }
 }
 
-export async function postLikeSet(token, postId) {
+export async function postLikeSet(token, postId, active = undefined) {
   if (Deno.env.get("LOG_LEVEL") === "trace") {
     log(`postLikeSet called with: { postId: ${postId}, token: ${token} }`);
   }
@@ -403,34 +403,36 @@ export async function postLikeSet(token, postId) {
   }
   try {
     const id = await resolveUser(token);
-    const normalizedPostId = normalizeId(postId);
-    if (!normalizedPostId) return false;
+    const postRef = resolvePost(postId);
+    if (!postRef) return false;
     const post = db
-      .prepare(`SELECT uuid, users_liked FROM posts WHERE id = ?`)
-      .get(normalizedPostId);
+      .prepare(`SELECT id, uuid, users_liked FROM posts WHERE id = ?`)
+      .get(postRef.id);
     if (!post) {
-      log(`Post ${normalizedPostId} not found`, "red");
+      log(`Post ${postId} not found`, "red");
       return false;
     }
     const liked = likedUsers(post.users_liked);
-    if (!liked.includes(id)) {
+    const isLiked = liked.includes(id);
+    const shouldLike = typeof active === "boolean" ? active : !isLiked;
+    if (shouldLike && !isLiked) {
       liked.push(id);
       db.prepare(
         `UPDATE posts SET users_liked = ?, likes = likes + 1 WHERE id = ?`,
-      ).run(JSON.stringify(liked), normalizedPostId);
-    } else {
+      ).run(JSON.stringify(liked), post.id);
+    } else if (!shouldLike && isLiked) {
       const index = liked.indexOf(id);
       if (index > -1) {
         liked.splice(index, 1);
         db.prepare(
           `UPDATE posts SET users_liked = ?, likes = likes - 1 WHERE id = ?`,
-        ).run(JSON.stringify(liked), normalizedPostId);
+        ).run(JSON.stringify(liked), post.id);
       }
     }
-    emitHomePostLike(postId, JSON.stringify(liked));
+    emitHomePostLike(post.id, JSON.stringify(liked));
     if (Deno.env.get("LOG_LEVEL") === "trace") {
       log(
-        `Post ${normalizedPostId} like status updated for user ${id}`,
+        `Post ${post.id} like status updated for user ${id}`,
         "gray",
       );
     }

@@ -574,8 +574,8 @@ export async function handler(req, ctx) {
     if (!token) return json({ error: true }, 401);
     const { postId, content, like } = await req.json();
     try {
-      if (like) {
-        const post = await home.postLikeSet(token, postId);
+      if (typeof like === "boolean") {
+        const post = await home.postLikeSet(token, postId, like);
         if (!post) return json({ error: true, msg: "Couldn't find post" }, 400);
         return json({ error: false });
       } else {

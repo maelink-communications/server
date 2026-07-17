@@ -376,11 +376,20 @@ Deno.test("API flow", async (t) => {
       const { res, data } = await request(
         "PATCH",
         "/home",
-        { like: true, postId: postId },
+        { like: false, postId: postUuid },
         { Authorization: `Bearer ${token}` },
       );
       console.log("Unlike post response status: ", data);
       assertEquals(res.status, 200);
+
+      const dbPost = db
+        .prepare(`SELECT users_liked FROM posts WHERE uuid = ?`)
+        .value(postUuid);
+      const liked = JSON.parse(dbPost);
+      assert(
+        !liked.includes(userId),
+        "User should be removed from users_liked array",
+      );
     });
   }
 
