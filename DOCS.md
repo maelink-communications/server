@@ -1,4 +1,4 @@
-# API for v1.0.0
+# API for v1.0.1
 
 _Things here will be updated frequently\*._
 
@@ -108,11 +108,18 @@ All routes require `Authorization: Bearer <ACCESS TOKEN>`. Comment and reply res
 
 ## USERS
 
-`GET` from `/user/<USERNAME>?page=<PAGE NUMBER>`<br>
+`GET` from `/user/<USERNAME>`<br>
 HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
 BODY: none<br>
 SUCCESS: HTTP 200<br>
-BODY: `{ "error": false, "user": { "username": "<USERNAME>", "pfp": null, "bio": null, "uuid": "<UUID>", "followerCount": 1, "followingCount": 2, "relationship": { "following": true, "followedBy": false, "mutual": false }, "followers": [] }, "userPosts": [ { "id": 1, "content": "Hello", "author": { "uuid": "<UUID>", "username": "<USERNAME>", "bio": null } } ] }`<br>
+BODY: `{ "error": false, "user": { "username": "<USERNAME>", "pfp": null, "bio": null, "uuid": "<UUID>", "followerCount": 1, "followingCount": 2, "relationship": { "following": true, "followedBy": false, "mutual": false }, "followers": [] } }`<br>
+ERROR: HTTP 400 with `{ "error": true }`
+
+`GET` from `/user/<USERNAME>/posts`<br>
+HEADERS: (JSON) `Authorization: Bearer <TOKEN>`<br>
+BODY: none<br>
+SUCCESS: HTTP 200<br>
+BODY: `{ "error": false, "posts": [ { "id": 1, "content": "Hello", "author": { "uuid": "<UUID>", "username": "<USERNAME>", "bio": null } } ] }`<br>
 ERROR: HTTP 400 with `{ "error": true }`
 
 `PATCH` to `/user`<br>

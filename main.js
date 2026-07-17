@@ -632,16 +632,27 @@ export async function handler(req, ctx) {
     const token = getToken(req);
     if (!token) return json({ error: true }, 401);
     const userId = pathParts[1];
-    const p = parseInt(url.searchParams.get("page") || "1");
-    let userPosts = [];
     try {
       const user = await me.fetchUser(token, userId);
       if (!user) {
         return json({ error: true, msg: "Couldn't find user" }, 400);
-      } else {
-        userPosts = await me.fetchUserPosts(token, userId, p);
       }
-      return json({ error: false, user, userPosts });
+      return json({ error: false, user });
+    } catch (e) {
+      log(e, "red");
+      return errorJson(e);
+    }
+  }
+
+  if (pathParts[0] === "user" && pathParts[2] === "posts" && pathParts.length === 3 && method === "GET") {
+    const token = getToken(req);
+    if (!token) return json({ error: true }, 401);
+    const userId = pathParts[1];
+    const p = parseInt(url.searchParams.get("page") || "1");
+    let userPosts = [];
+    try {
+      userPosts = await me.fetchUserPosts(token, userId, p);
+      return json({ error: false, userPosts });
     } catch (e) {
       log(e, "red");
       return errorJson(e);
