@@ -54,7 +54,7 @@ function json(data, status = 200, cookies = []) {
         : status === 404
           ? "Route not found"
           : `Request failed with status ${status}`);
-    data = { ...data, message, msg: data.msg ?? message };
+    data = { ...data, msg: data.msg ?? message };
   }
   const headers = new Headers({
     "Content-Type": "application/json",
