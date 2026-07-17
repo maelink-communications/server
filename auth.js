@@ -30,7 +30,7 @@ function signToken(uuid, username, authVersion, expiresIn, type) {
 }
 
 function signAccessToken(uuid, username, authVersion) {
-  return signToken(uuid, username, authVersion, "2h", "access");
+  return signToken(uuid, username, authVersion, "15m", "access");
 }
 
 function signRefreshToken(uuid, username, authVersion) {
