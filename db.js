@@ -26,7 +26,7 @@ const TABLE_PRESETS = {
       user_id: "TEXT",
       author: "TEXT",
       uuid: "TEXT UNIQUE",
-      content: "TEXT",
+      content: "TEXT NOT NULL",
       ts: "INTEGER",
       client: "TEXT NOT NULL",
       likes: "INTEGER DEFAULT 0",
@@ -54,7 +54,7 @@ const TABLE_PRESETS = {
       uuid: "TEXT UNIQUE",
       post_id: "TEXT",
       user_id: "TEXT",
-      content: "TEXT",
+      content: "TEXT NOT NULL",
       ts: "INTEGER",
     },
   },
@@ -347,7 +347,7 @@ function initializeSchema() {
     user_id TEXT,
     author TEXT,
     uuid TEXT UNIQUE,
-    content TEXT,
+    content TEXT NOT NULL,
     ts INTEGER,
     client TEXT NOT NULL,
     likes INTEGER DEFAULT 0,
@@ -374,7 +374,7 @@ function initializeSchema() {
   uuid TEXT UNIQUE,
   post_id TEXT REFERENCES posts(uuid),
   user_id TEXT,
-  content TEXT,
+  content TEXT NOT NULL,
   ts INTEGER
 );
 `);
