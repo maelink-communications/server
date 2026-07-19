@@ -484,6 +484,7 @@ export async function proxyUploadsRequest(req, uploadedBy = null) {
     headers.set("x-maelink-uploads-secret", internalSecret);
     headers.set("x-maelink-uploaded-by", uploadedBy);
   }
+  headers.set("access-control-allow-origin", req.headers.get("origin"))
 
   try {
     const response = await fetch(target, {
