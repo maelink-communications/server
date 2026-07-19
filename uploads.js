@@ -90,19 +90,19 @@ export function uploadsPublicUrl() {
     `http://localhost:${defaultPort}`).replace(/\/$/, "");
 }
 
-function corsHeaders() {
+function corsHeaders(origin) {
   return {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": origin || "*",
     "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS",
     "Access-Control-Allow-Headers":
       "authorization, content-type, content-length, x-file-name",
   };
 }
 
-function json(data, status = 200) {
+function json(data, status = 200, origin = "") {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json", ...corsHeaders() },
+    headers: { "content-type": "application/json", ...corsHeaders(origin) },
   });
 }
 
@@ -328,7 +328,7 @@ async function receiveUpload(req) {
 
 async function serveUpload(req, id) {
   if (!isUploadId(id)) {
-    return json({ error: true, message: "File not found" }, 404);
+    return json({ error: true, message: "File not found" }, 404, req.headers.get("origin"));
   }
   try {
     const file = await Deno.open(join(UPLOADS_DIR, id), { read: true });
@@ -338,10 +338,10 @@ async function serveUpload(req, id) {
     if (expiresAt !== null && expiresAt <= Date.now()) {
       file.close();
       await Deno.remove(join(UPLOADS_DIR, id)).catch(() => {});
-      return json({ error: true, message: "File not found" }, 404);
+      return json({ error: true, message: "File not found" }, 404, req.headers.get("origin"));
     }
     const headers = new Headers({
-      ...corsHeaders(),
+      ...corsHeaders(req.headers.get("origin")),
       "content-length": String(stat.size),
       "content-type": contentTypeFor(id),
       "cache-control": "public, max-age=31536000, immutable",
@@ -354,7 +354,7 @@ async function serveUpload(req, id) {
     return new Response(file.readable, { headers });
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      return json({ error: true, message: "File not found" }, 404);
+      return json({ error: true, message: "File not found" }, 404, req.headers.get("origin"));
     }
     throw error;
   }
@@ -431,15 +431,15 @@ export function normalizeAttachments(value) {
 
 export async function uploadsHandler(req) {
   if (!uploadsEnabled()) {
-    return json({ error: true, message: "Uploads are disabled" }, 404);
+    return json({ error: true, message: "Uploads are disabled" }, 404, req.headers.get("origin"));
   }
   const url = new URL(req.url);
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders() });
+    return new Response(null, { status: 204, headers: corsHeaders(req.headers.get("origin")) });
   }
   try {
     if (url.pathname === "/upload" && req.method === "POST") {
-      return json({ error: false, file: await receiveUpload(req) }, 201);
+      return json({ error: false, file: await receiveUpload(req) }, 201, req.headers.get("origin"));
     }
     const match = url.pathname.match(/^\/files\/([^/]+)$/);
     if (match && ["GET", "HEAD"].includes(req.method)) {
@@ -451,9 +451,9 @@ export async function uploadsHandler(req) {
         enabled: true,
         maxFileSize: MAX_UPLOAD_BYTES,
         expiryDays: uploadsExpiryDays(),
-      });
+      }, 200, req.headers.get("origin"));
     }
-    return json({ error: true, message: "Route not found" }, 404);
+    return json({ error: true, message: "Route not found" }, 404, req.headers.get("origin"));
   } catch (error) {
     return uploadError(error);
   }
