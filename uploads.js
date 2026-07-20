@@ -439,7 +439,7 @@ export async function uploadsHandler(req) {
   }
   try {
     if (url.pathname === "/upload" && req.method === "POST") {
-      return json({ error: false, file: await receiveUpload(req) }, 201, req.headers.get("origin"));
+      return json({ error: false, file: await receiveUpload(req), origin: req.headers.get("origin") }, 201, req.headers.get("origin"));
     }
     const match = url.pathname.match(/^\/files\/([^/]+)$/);
     if (match && ["GET", "HEAD"].includes(req.method)) {
