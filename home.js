@@ -429,7 +429,7 @@ export async function postLikeSet(token, postId, active = undefined) {
         ).run(JSON.stringify(liked), post.id);
       }
     }
-    emitHomePostLike(post.id, JSON.stringify(liked));
+    emitHomePostLike(post.id, JSON.stringify(liked), liked.length);
     if (Deno.env.get("LOG_LEVEL") === "trace") {
       log(
         `Post ${post.id} like status updated for user ${id}`,
