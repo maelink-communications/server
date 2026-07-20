@@ -401,24 +401,24 @@ RECEIVE: `{ "type": "authenticated", "username": "<USERNAME>", "permissions": []
 
 **Events you will receive:**
 
-| type                   | payload                      | description                              |
-| ---------------------- | ---------------------------- | ---------------------------------------- |
-| `home:post`            | post data                    | A new post was created on the home feed  |
-| `home:post:edit`       | `postId, content`            | A home post was edited                   |
-| `home:post:delete`     | `postId`                     | A home post was deleted                  |
-| `home:post:like`       | `postId, users_liked`        | A home post was liked/unliked            |
-| `guild:post`           | `guildId` + post data        | A new post was made in a guild you're in |
-| `guild:update`         | `guildId, name, description` | A guild's info was updated               |
-| `guild:channel:create` | `guildId, channel`           | A channel was created in a guild         |
-| `guild:channel:delete` | `guildId, channelId`         | A channel was deleted in a guild         |
-| `inbox:message`        | message data                 | You received a new inbox message         |
-| `moderation:kicked`    | `reason`                     | Your sessions were revoked               |
-| `moderation:banned`    | `reason`                     | Your account was banned                  |
-| `auth:revoked`         | none                         | Your tokens were revoked through logout  |
-| `home:comment:create`  | `postId, item`               | A Home comment was created                |
-| `home:comment:delete`  | `postId, item`               | A Home comment was deleted                |
-| `home:reply:create`    | `postId, item`               | A Home reply was created                  |
-| `home:reply:delete`    | `postId, item`               | A Home reply tree was deleted             |
-| `guild:post:reaction`  | `guildId, postId, reaction`  | A guild reaction changed                  |
-| `guild:emoji:create`   | `guildId, emoji`             | A custom guild emoji was registered       |
-| `guild:emoji:delete`   | `guildId, emoji`             | A custom guild emoji was deleted          |
+| type                   | payload                           | description                              |
+| ---------------------- | --------------------------------- | ---------------------------------------- |
+| `home:post`            | post data                         | A new post was created on the home feed  |
+| `home:post:edit`       | `postId, content`                 | A home post was edited                   |
+| `home:post:delete`     | `postId`                          | A home post was deleted                  |
+| `home:post:like`       | `postId, users_liked, like_count` | A home post was liked/unliked            |
+| `guild:post`           | `guildId` + post data             | A new post was made in a guild you're in |
+| `guild:update`         | `guildId, name, description`      | A guild's info was updated               |
+| `guild:channel:create` | `guildId, channel`                | A channel was created in a guild         |
+| `guild:channel:delete` | `guildId, channelId`              | A channel was deleted in a guild         |
+| `inbox:message`        | message data                      | You received a new inbox message         |
+| `moderation:kicked`    | `reason`                          | Your sessions were revoked               |
+| `moderation:banned`    | `reason`                          | Your account was banned                  |
+| `auth:revoked`         | none                              | Your tokens were revoked through logout  |
+| `home:comment:create`  | `postId, item`                    | A Home comment was created               |
+| `home:comment:delete`  | `postId, item`                    | A Home comment was deleted               |
+| `home:reply:create`    | `postId, item`                    | A Home reply was created                 |
+| `home:reply:delete`    | `postId, item`                    | A Home reply tree was deleted            |
+| `guild:post:reaction`  | `guildId, postId, reaction`       | A guild reaction changed                 |
+| `guild:emoji:create`   | `guildId, emoji`                  | A custom guild emoji was registered      |
+| `guild:emoji:delete`   | `guildId, emoji`                  | A custom guild emoji was deleted         |
